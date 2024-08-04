@@ -30,6 +30,46 @@ OpenSauna is designed to provide a generic sauna controller that allows users to
 - **Configurable GPIO Pins:** Users can customize the GPIO pins used for controlling various components, offering flexibility for different hardware setups.
 - **Inverse Door Logic:** Supports inverse logic for door sensors to accommodate various installation configurations.
 
+## Configuration
+
+To configure the OpenSauna plugin, you can use the Homebridge UI or edit your `config.json` file directly. Below is an example configuration:
+
+```json
+{
+  "platform": "OpenSauna",
+  "name": "My Sauna System",
+  "hasSauna": true,
+  "hasSaunaSplitPhase": false,
+  "hasSteam": true,
+  "hasSteamSplitPhase": true,
+  "hasLight": true,
+  "hasFan": true,
+  "inverseSaunaDoor": false,
+  "inverseSteamDoor": false,
+  "temperatureUnitFahrenheit": false,
+  "gpioPins": {
+    "saunaPowerPins": [17, 18],
+    "steamPowerPins": [22, 23],
+    "lightPin": 24,
+    "fanPin": 25,
+    "saunaDoorPin": 26,
+    "steamDoorPin": 27
+  },
+  "auxSensors": [
+    {
+      "name": "Aux Sensor 1",
+      "channel": 2,
+      "associatedSystem": "sauna",
+      "impactControl": false
+    }
+  ],
+  "targetTemperatures": {
+    "sauna": 80,
+    "steam": 100
+  }
+}
+```
+
 ## Setup Development Environment
 
 To develop Homebridge plugins, you must have Node.js 18 or later installed and a modern code editor such as [VS Code](https://code.visualstudio.com/). This plugin template uses [TypeScript](https://www.typescriptlang.org/) to make development easier and comes with pre-configured settings for [VS Code](https://code.visualstudio.com/) and ESLint. If you are using VS Code, install these extensions:
@@ -43,3 +83,29 @@ Using a terminal, navigate to the project folder and run this command to install
 ```shell
 npm install
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+- **Accessory Not Appearing:** Ensure that the Homebridge server is running and that your configuration is correct.
+- **GPIO Pin Configuration:** Double-check that the GPIO pins match your physical setup and are correctly listed in the configuration.
+- **Sensor Readings Incorrect:** Verify sensor connections and ensure that any necessary libraries or drivers are installed.
+
+### Logs and Support
+
+Check the Homebridge logs for error messages or warnings. These can provide insight into any misconfigurations or runtime issues.
+
+For further assistance, you can visit the [Homebridge GitHub](https://github.com/homebridge/homebridge) for more resources or open an issue on the plugin's repository.
+
+## Examples and Use Cases
+
+Here are some common setups and configurations for various sauna and steam room environments:
+
+1. **Basic Sauna Setup:**
+   - Single-phase power control, temperature monitoring, and basic lighting.
+   
+2. **Advanced Steam Room:**
+   - Split-phase power, integrated humidity and temperature control, with auxiliary sensors for enhanced monitoring.
+
+These examples demonstrate the flexibility of the OpenSauna plugin and how it can be adapted to meet specific needs.

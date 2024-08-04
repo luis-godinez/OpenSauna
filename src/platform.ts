@@ -18,7 +18,7 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
   constructor(
     public readonly log: Logger,
     public readonly config: PlatformConfig,
-    public readonly api: API
+    public readonly api: API,
   ) {
     this.Service = this.api.hap.Service;
     this.Characteristic = this.api.hap.Characteristic;
@@ -36,7 +36,7 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
   discoverDevices() {
     if (!isOpenSaunaConfig(this.config)) {
       this.log.error(
-        'Invalid configuration for OpenSauna. Please check your config.json.'
+        'Invalid configuration for OpenSauna. Please check your config.json.',
       );
       return;
     }
@@ -65,19 +65,19 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
 
   private addAccessory(
     devices: OpenSaunaConfig,
-    type: 'sauna' | 'steam' | 'light' | 'fan'
+    type: 'sauna' | 'steam' | 'light' | 'fan',
   ) {
     // Generate a unique UUID for each accessory
     const uuid = this.api.hap.uuid.generate(`${devices.name}-${type}`);
     const existingAccessory = this.accessories.find(
-      (accessory) => accessory.UUID === uuid
+      (accessory) => accessory.UUID === uuid,
     );
 
     if (existingAccessory) {
       // The accessory already exists, update it
       this.log.info(
         'Restoring existing accessory from cache:',
-        existingAccessory.displayName
+        existingAccessory.displayName,
       );
       new OpenSaunaAccessory(this, existingAccessory, devices, type);
     } else {
@@ -109,9 +109,13 @@ function isOpenSaunaConfig(config: PlatformConfig): config is OpenSaunaConfig {
     config.gpioPins !== undefined &&
     typeof config.gpioPins.saunaDoorPin === 'number' &&
     typeof config.gpioPins.steamDoorPin === 'number' &&
-    config.auxSensors !== undefined &&
-    Array.isArray(config.auxSensors) &&
     Array.isArray(config.gpioPins.saunaPowerPins) &&
-    Array.isArray(config.gpioPins.steamPowerPins)
+    Array.isArray(config.gpioPins.steamPowerPins) &&
+    Array.isArray(config.auxSensors) &&
+    config.auxSensors.every(sensor =>
+      typeof sensor.name === 'string' &&
+      typeof sensor.channel === 'number' &&
+      typeof sensor.impactControl === 'boolean',
+    ) // Check if aux sensors are valid objects
   );
 }

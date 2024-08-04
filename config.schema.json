@@ -1,15 +1,178 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "OpenSauna",
   "pluginType": "platform",
   "singular": true,
   "schema": {
     "type": "object",
     "properties": {
-      "name": {
-        "title": "Name",
+      "platform": {
         "type": "string",
-        "required": true,
-        "default": "Example Dynamic Platform"
+        "title": "Platform Name",
+        "default": "OpenSauna",
+        "readOnly": true
+      },
+      "name": {
+        "type": "string",
+        "title": "Sauna System Name",
+        "description": "The name for the sauna system, displayed in Homebridge.",
+        "required": true
+      },
+      "hasSauna": {
+        "type": "boolean",
+        "title": "Enable Sauna",
+        "description": "Indicates if the sauna functionality is available.",
+        "default": false
+      },
+      "hasSaunaSplitPhase": {
+        "type": "boolean",
+        "title": "Sauna Split Phase",
+        "description": "False for 120V, True for 240V sauna configuration.",
+        "default": false
+      },
+      "hasSteam": {
+        "type": "boolean",
+        "title": "Enable Steam",
+        "description": "Indicates if the steam functionality is available.",
+        "default": false
+      },
+      "hasSteamSplitPhase": {
+        "type": "boolean",
+        "title": "Steam Split Phase",
+        "description": "False for 120V, True for 240V steam configuration.",
+        "default": false
+      },
+      "hasLight": {
+        "type": "boolean",
+        "title": "Enable Light Control",
+        "description": "Indicates if light control is available.",
+        "default": false
+      },
+      "hasFan": {
+        "type": "boolean",
+        "title": "Enable Fan Control",
+        "description": "Indicates if fan control is available.",
+        "default": false
+      },
+      "inverseSaunaDoor": {
+        "type": "boolean",
+        "title": "Inverse Sauna Door Logic",
+        "description": "True if sauna door sensor logic is inverted.",
+        "default": false
+      },
+      "inverseSteamDoor": {
+        "type": "boolean",
+        "title": "Inverse Steam Door Logic",
+        "description": "True if steam door sensor logic is inverted.",
+        "default": false
+      },
+      "temperatureUnitFahrenheit": {
+        "type": "boolean",
+        "title": "Temperature Unit Fahrenheit",
+        "description": "True for Fahrenheit, False for Celsius.",
+        "default": false
+      },
+      "gpioPins": {
+        "type": "object",
+        "title": "GPIO Pins Configuration",
+        "properties": {
+          "saunaPowerPins": {
+            "type": "array",
+            "title": "Sauna Power Pins",
+            "description": "Array of GPIO pins for sauna power control.",
+            "items": {
+              "type": "number"
+            },
+            "default": []
+          },
+          "steamPowerPins": {
+            "type": "array",
+            "title": "Steam Power Pins",
+            "description": "Array of GPIO pins for steam power control.",
+            "items": {
+              "type": "number"
+            },
+            "default": []
+          },
+          "lightPin": {
+            "type": "number",
+            "title": "Light Control Pin",
+            "description": "Optional GPIO pin for light control.",
+            "default": null
+          },
+          "fanPin": {
+            "type": "number",
+            "title": "Fan Control Pin",
+            "description": "Optional GPIO pin for fan control.",
+            "default": null
+          },
+          "saunaDoorPin": {
+            "type": "number",
+            "title": "Sauna Door Sensor Pin",
+            "description": "GPIO pin for sauna door sensor.",
+            "required": true
+          },
+          "steamDoorPin": {
+            "type": "number",
+            "title": "Steam Door Sensor Pin",
+            "description": "GPIO pin for steam door sensor.",
+            "required": true
+          }
+        }
+      },
+      "auxSensors": {
+        "type": "array",
+        "title": "Auxiliary Sensors",
+        "description": "Array of auxiliary sensors for additional readings.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "title": "Sensor Name",
+              "description": "Name or label for the auxiliary sensor.",
+              "required": true
+            },
+            "channel": {
+              "type": "number",
+              "title": "ADC Channel",
+              "description": "ADC channel for the auxiliary sensor.",
+              "required": true
+            },
+            "associatedSystem": {
+              "type": "string",
+              "title": "Associated System",
+              "description": "System this sensor is associated with.",
+              "enum": ["sauna", "steam"],
+              "default": null
+            },
+            "impactControl": {
+              "type": "boolean",
+              "title": "Impact Control",
+              "description": "Whether this sensor impacts system control.",
+              "default": false
+            }
+          }
+        },
+        "default": []
+      },
+      "targetTemperatures": {
+        "type": "object",
+        "title": "Target Temperatures",
+        "description": "Optional target temperatures for sauna and steam.",
+        "properties": {
+          "sauna": {
+            "type": "number",
+            "title": "Sauna Target Temperature",
+            "description": "Optional target temperature for sauna.",
+            "default": null
+          },
+          "steam": {
+            "type": "number",
+            "title": "Steam Target Temperature",
+            "description": "Optional target temperature for steam.",
+            "default": null
+          }
+        }
       }
     }
   }
