@@ -1,0 +1,43 @@
+{
+  "platforms": [
+    {
+      "platform": "OpenSauna",
+      "name": "My Sauna System",
+      "hasSauna": true,
+      "hasSaunaSplitPhase": true,
+      "hasSteam": true,
+      "hasSteamSplitPhase": false,
+      "hasLight": true,
+      "hasFan": true,
+      "inverseSaunaDoor": false,
+      "inverseSteamDoor": true,
+      "temperatureUnitFahrenheit": false,
+      "gpioPins": {
+        "saunaPowerPins": [16, 20],
+        "steamPowerPins": [25, 24],
+        "lightPin": 23,
+        "fanPin": 18,
+        "saunaDoorPin": 19,
+        "steamDoorPin": 26
+      },
+      "auxSensors": [
+        {
+          "name": "Aux2",
+          "channel": 2,
+          "associatedSystem": "sauna",
+          "impactControl": true
+        },
+        {
+          "name": "Aux3",
+          "channel": 3,
+          "associatedSystem": "steam",
+          "impactControl": false
+        }
+      ],
+      "targetTemperatures": {
+        "sauna": 80,
+        "steam": 40
+      }
+    }
+  ]
+}

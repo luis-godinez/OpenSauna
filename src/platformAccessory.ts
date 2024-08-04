@@ -1,141 +1,346 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
+import { OpenSaunaPlatform } from './platform';
+import { Gpio } from 'pigpio'; // Updated import from pigpio
+import { Mcp3008 } from 'mcp-spi-adc'; // Import Mcp3008
+import i2c from 'i2c-bus'; // Assume types declared in typings.d.ts
+import { OpenSaunaConfig } from './settings';
 
-import { ExampleHomebridgePlatform } from './platform.js';
-
-/**
- * Platform Accessory
- * An instance of this class is created for each accessory your platform registers
- * Each accessory may expose multiple services of different service types.
- */
-export class ExamplePlatformAccessory {
+export class OpenSaunaAccessory {
   private service: Service;
-
-  /**
-   * These are just used to create a working example
-   * You should implement your own code to track the state of your accessory
-   */
-  private exampleStates = {
-    On: false,
-    Brightness: 100,
-  };
+  private temperatureService?: Service;
+  private targetTemperatureService?: Service;
+  private doorService?: Service;
+  private gpioPins: Gpio[] = [];
+  private adc: Mcp3008; // Define adc
+  private i2cBus!: i2c.PromisifiedBus; // Define i2cBus
 
   constructor(
-    private readonly platform: ExampleHomebridgePlatform,
+    private readonly platform: OpenSaunaPlatform,
     private readonly accessory: PlatformAccessory,
+    private readonly config: OpenSaunaConfig,
+    private readonly accessoryType: 'sauna' | 'steam' | 'light' | 'fan'
   ) {
+    // Initialize the ADC
+    this.adc = Mcp3008.open(0, { speedHz: 1350000 }, (err: Error | null) => {
+      if (err) {
+        this.platform.log.error('Failed to open ADC:', err.message);
+      }
+    });
 
-    // set accessory information
-    this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Default-Manufacturer')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
+    // Initialize I2C Bus
+    i2c
+      .openPromisified(1)
+      .then((bus) => {
+        this.i2cBus = bus;
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error) {
+          this.platform.log.error('Failed to open I2C bus:', err.message);
+        } else {
+          this.platform.log.error('Failed to open I2C bus:', String(err));
+        }
+      });
 
-    // get the LightBulb service if it exists, otherwise create a new LightBulb service
-    // you can create multiple services for each accessory
-    this.service = this.accessory.getService(this.platform.Service.Lightbulb) || this.accessory.addService(this.platform.Service.Lightbulb);
+    // Initialize On/Off Service
+    this.service =
+      this.accessory.getService(this.platform.Service.Switch) ||
+      this.accessory.addService(this.platform.Service.Switch);
+    this.service.setCharacteristic(
+      this.platform.Characteristic.Name,
+      `${this.config.name} ${accessoryType}`
+    );
+    this.service
+      .getCharacteristic(this.platform.Characteristic.On)
+      .onSet(this.handleOnSet.bind(this));
 
-    // set the service name, this is what is displayed as the default name on the Home app
-    // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.exampleDisplayName);
-
-    // each service must implement at-minimum the "required characteristics" for the given service type
-    // see https://developers.homebridge.io/#/service/Lightbulb
-
-    // register handlers for the On/Off Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.setOn.bind(this))                // SET - bind to the `setOn` method below
-      .onGet(this.getOn.bind(this));               // GET - bind to the `getOn` method below
-
-    // register handlers for the Brightness Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.Brightness)
-      .onSet(this.setBrightness.bind(this));       // SET - bind to the 'setBrightness` method below
-
-    /**
-     * Creating multiple services of the same type.
-     *
-     * To avoid "Cannot add a Service with the same UUID another Service without also defining a unique 'subtype' property." error,
-     * when creating multiple services of the same type, you need to use the following syntax to specify a name and subtype id:
-     * this.accessory.getService('NAME') || this.accessory.addService(this.platform.Service.Lightbulb, 'NAME', 'USER_DEFINED_SUBTYPE_ID');
-     *
-     * The USER_DEFINED_SUBTYPE must be unique to the platform accessory (if you platform exposes multiple accessories, each accessory
-     * can use the same subtype id.)
-     */
-
-    // Example: add two "motion sensor" services to the accessory
-    const motionSensorOneService = this.accessory.getService('Motion Sensor One Name') ||
-      this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor One Name', 'YourUniqueIdentifier-1');
-
-    const motionSensorTwoService = this.accessory.getService('Motion Sensor Two Name') ||
-      this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor Two Name', 'YourUniqueIdentifier-2');
-
-    /**
-     * Updating characteristics values asynchronously.
-     *
-     * Example showing how to update the state of a Characteristic asynchronously instead
-     * of using the `on('get')` handlers.
-     * Here we change update the motion sensor trigger states on and off every 10 seconds
-     * the `updateCharacteristic` method.
-     *
-     */
-    let motionDetected = false;
-    setInterval(() => {
-      // EXAMPLE - inverse the trigger
-      motionDetected = !motionDetected;
-
-      // push the new value to HomeKit
-      motionSensorOneService.updateCharacteristic(this.platform.Characteristic.MotionDetected, motionDetected);
-      motionSensorTwoService.updateCharacteristic(this.platform.Characteristic.MotionDetected, !motionDetected);
-
-      this.platform.log.debug('Triggering motionSensorOneService:', motionDetected);
-      this.platform.log.debug('Triggering motionSensorTwoService:', !motionDetected);
-    }, 10000);
+    // Set up specific services based on accessory type
+    switch (accessoryType) {
+      case 'sauna':
+        this.setupSauna();
+        break;
+      case 'steam':
+        this.setupSteam();
+        break;
+      case 'light':
+        this.setupLight();
+        break;
+      case 'fan':
+        this.setupFan();
+        break;
+    }
   }
 
-  /**
-   * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
-   */
-  async setOn(value: CharacteristicValue) {
-    // implement your own code to turn your device on/off
-    this.exampleStates.On = value as boolean;
-
-    this.platform.log.debug('Set Characteristic On ->', value);
+  private async initializeI2CBus() {
+    try {
+      this.i2cBus = await i2c.openPromisified(1);
+    } catch (err) {
+      if (err instanceof Error) {
+        this.platform.log.error('Failed to open I2C bus:', err.message);
+      } else {
+        this.platform.log.error('Failed to open I2C bus:', String(err));
+      }
+    }
   }
 
-  /**
-   * Handle the "GET" requests from HomeKit
-   * These are sent when HomeKit wants to know the current state of the accessory, for example, checking if a Light bulb is on.
-   *
-   * GET requests should return as fast as possible. A long delay here will result in
-   * HomeKit being unresponsive and a bad user experience in general.
-   *
-   * If your device takes time to respond you should update the status of your device
-   * asynchronously instead using the `updateCharacteristic` method instead.
+  private setupSauna() {
+    this.gpioPins = this.config.gpioPins.saunaPowerPins.map(
+      (pin) => new Gpio(pin, { mode: Gpio.OUTPUT })
+    );
 
-   * @example
-   * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
-   */
-  async getOn(): Promise<CharacteristicValue> {
-    // implement your own code to check if the device is on
-    const isOn = this.exampleStates.On;
+    this.temperatureService =
+      this.accessory.getService(this.platform.Service.TemperatureSensor) ||
+      this.accessory.addService(
+        this.platform.Service.TemperatureSensor,
+        `${this.config.name} Sauna Temperature`
+      );
 
-    this.platform.log.debug('Get Characteristic On ->', isOn);
+    this.temperatureService.setCharacteristic(
+      this.platform.Characteristic.Name,
+      `${this.config.name} Sauna Temperature`
+    );
 
-    // if you need to return an error to show the device as "Not Responding" in the Home app:
-    // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+    this.targetTemperatureService =
+      this.accessory.getService(this.platform.Service.Thermostat) ||
+      this.accessory.addService(
+        this.platform.Service.Thermostat,
+        `${this.config.name} Sauna Target Temperature`
+      );
+    this.targetTemperatureService.setCharacteristic(
+      this.platform.Characteristic.Name,
+      `${this.config.name} Sauna Target Temperature`
+    );
+    this.targetTemperatureService
+      .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+      .onSet(this.handleTargetTemperatureSet.bind(this));
 
-    return isOn;
+    this.monitorTemperature('sauna');
+    this.setupDoorMonitoring('sauna');
   }
 
-  /**
-   * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for example, changing the Brightness
-   */
-  async setBrightness(value: CharacteristicValue) {
-    // implement your own code to set the brightness
-    this.exampleStates.Brightness = value as number;
+  private setupSteam() {
+    this.gpioPins = this.config.gpioPins.steamPowerPins.map(
+      (pin) => new Gpio(pin, { mode: Gpio.OUTPUT })
+    );
 
-    this.platform.log.debug('Set Characteristic Brightness -> ', value);
+    this.temperatureService =
+      this.accessory.getService(this.platform.Service.TemperatureSensor) ||
+      this.accessory.addService(
+        this.platform.Service.TemperatureSensor,
+        `${this.config.name} Steam Temperature`
+      );
+
+    this.temperatureService.setCharacteristic(
+      this.platform.Characteristic.Name,
+      `${this.config.name} Steam Temperature`
+    );
+
+    this.targetTemperatureService =
+      this.accessory.getService(this.platform.Service.Thermostat) ||
+      this.accessory.addService(
+        this.platform.Service.Thermostat,
+        `${this.config.name} Steam Target Temperature`
+      );
+    this.targetTemperatureService.setCharacteristic(
+      this.platform.Characteristic.Name,
+      `${this.config.name} Steam Target Temperature`
+    );
+    this.targetTemperatureService
+      .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+      .onSet(this.handleTargetTemperatureSet.bind(this));
+
+    this.monitorTemperature('steam');
+    this.monitorHumidity();
+    this.setupDoorMonitoring('steam');
   }
 
+  private setupLight() {
+    if (this.config.gpioPins.lightPin !== undefined) {
+      this.service =
+        this.accessory.getService(this.platform.Service.Switch) ||
+        this.accessory.addService(
+          this.platform.Service.Switch,
+          `${this.config.name} Light`
+        );
+
+      this.service.setCharacteristic(
+        this.platform.Characteristic.Name,
+        `${this.config.name} Light`
+      );
+      this.service
+        .getCharacteristic(this.platform.Characteristic.On)
+        .onSet(this.handleOnSet.bind(this));
+
+      this.gpioPins = [
+        new Gpio(this.config.gpioPins.lightPin, { mode: Gpio.OUTPUT }),
+      ];
+    }
+  }
+
+  private setupFan() {
+    if (this.config.gpioPins.fanPin !== undefined) {
+      this.service =
+        this.accessory.getService(this.platform.Service.Switch) ||
+        this.accessory.addService(
+          this.platform.Service.Switch,
+          `${this.config.name} Fan`
+        );
+
+      this.service.setCharacteristic(
+        this.platform.Characteristic.Name,
+        `${this.config.name} Fan`
+      );
+      this.service
+        .getCharacteristic(this.platform.Characteristic.On)
+        .onSet(this.handleOnSet.bind(this));
+
+      this.gpioPins = [
+        new Gpio(this.config.gpioPins.fanPin, { mode: Gpio.OUTPUT }),
+      ];
+    }
+  }
+
+  private handleOnSet(value: CharacteristicValue) {
+    const isOn = value as boolean;
+    this.gpioPins.forEach((gpio) => gpio.digitalWrite(isOn ? 1 : 0));
+    this.platform.log.info(
+      `${this.accessoryType} power ${isOn ? 'ON' : 'OFF'}`
+    );
+  }
+
+  private async handleTargetTemperatureSet(value: CharacteristicValue) {
+    const targetTemperature = value as number;
+    this.platform.log.info(
+      `Target Temperature set to ${targetTemperature} °${
+        this.config.temperatureUnitFahrenheit ? 'F' : 'C'
+      }`
+    );
+    // Implement logic to handle target temperature setting if necessary
+  }
+
+  private monitorTemperature(type: 'sauna' | 'steam') {
+    const channel = type === 'sauna' ? 1 : 2; // Example channel numbers
+
+    const intervalId = setInterval(() => {
+      this.adc.read(
+        channel,
+        (err: Error | null, reading: { value: number }) => {
+          if (err) {
+            this.platform.log.error(
+              `Failed to read temperature for ${type}: ${err.message}`
+            );
+            return;
+          }
+
+          const temperatureCelsius = (reading.value * 3.3 - 0.5) * 100;
+          const displayTemperature = this.config.temperatureUnitFahrenheit
+            ? this.convertToFahrenheit(temperatureCelsius)
+            : temperatureCelsius;
+
+          const unit = this.config.temperatureUnitFahrenheit ? 'F' : 'C';
+          this.platform.log.info(
+            `${
+              type.charAt(0).toUpperCase() + type.slice(1)
+            } Temperature: ${displayTemperature.toFixed(2)} °${unit}`
+          );
+
+          const targetTemperatureCelsius =
+            this.config.targetTemperatures[type] ?? 0;
+          if (temperatureCelsius > targetTemperatureCelsius) {
+            this.handleOnSet(false);
+          } else {
+            this.handleOnSet(true);
+          }
+
+          if (this.temperatureService) {
+            this.temperatureService.updateCharacteristic(
+              this.platform.Characteristic.CurrentTemperature,
+              displayTemperature
+            );
+          }
+        }
+      );
+    }, 5000); // Check temperature every 5 seconds
+
+    // Ensure interval cleanup
+    process.on('exit', () => clearInterval(intervalId));
+  }
+
+  private monitorHumidity() {
+    setInterval(async () => {
+      try {
+        await this.i2cBus.writeByte(0x5c, 0x00, 0x00);
+        await new Promise((resolve) => setTimeout(resolve, 1)); // Delay for wake-up
+        const buffer = Buffer.alloc(8);
+        await this.i2cBus.readI2cBlock(0x5c, 0x03, 8, buffer);
+
+        const humidity = ((buffer[2] << 8) + buffer[3]) / 10.0;
+        const temperatureCelsius = ((buffer[4] << 8) + buffer[5]) / 10.0;
+        const displayTemperature = this.config.temperatureUnitFahrenheit
+          ? this.convertToFahrenheit(temperatureCelsius)
+          : temperatureCelsius;
+
+        const unit = this.config.temperatureUnitFahrenheit ? 'F' : 'C';
+        this.platform.log.info(`Steam Humidity: ${humidity} %`);
+        this.platform.log.info(
+          `Steam Temperature: ${displayTemperature.toFixed(2)} °${unit}`
+        );
+
+        if (this.temperatureService) {
+          this.temperatureService.updateCharacteristic(
+            this.platform.Characteristic.CurrentTemperature,
+            displayTemperature
+          );
+        }
+      } catch (err) {
+        this.platform.log.error(
+          `Failed to read humidity and temperature: ${(err as Error).message}`
+        );
+      }
+    }, 10000); // Check humidity every 10 seconds
+  }
+
+  private setupDoorMonitoring(type: 'sauna' | 'steam') {
+    const doorPin =
+      type === 'sauna'
+        ? this.config.gpioPins.saunaDoorPin
+        : this.config.gpioPins.steamDoorPin;
+    const inverseLogic =
+      type === 'steam'
+        ? this.config.inverseSaunaDoor
+        : this.config.inverseSteamDoor;
+    if (doorPin !== undefined) {
+      const doorSensor = new Gpio(doorPin, { mode: Gpio.INPUT, alert: true });
+      doorSensor.on('alert', (level) => {
+        // Determine the door state based on the sensor value and inverse logic
+        const doorOpen = inverseLogic ? level === 0 : level === 1;
+        this.platform.log.info(
+          `${type.charAt(0).toUpperCase() + type.slice(1)} Door ${
+            doorOpen ? 'Open' : 'Closed'
+          }`
+        );
+
+        // Update the door service state if applicable
+        if (this.doorService) {
+          this.doorService.updateCharacteristic(
+            this.platform.Characteristic.ContactSensorState,
+            doorOpen
+              ? this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+              : this.platform.Characteristic.ContactSensorState
+                  .CONTACT_NOT_DETECTED
+          );
+        }
+      });
+
+      // Clean up on shutdown
+      process.on('exit', () => {
+        doorSensor.digitalWrite(0); // Ensure the pin is in a safe state
+      });
+    } else {
+      this.platform.log.warn(`No door pin configured for ${type}`);
+    }
+  }
+
+  private convertToFahrenheit(celsius: number): number {
+    return celsius * 1.8 + 32;
+  }
 }

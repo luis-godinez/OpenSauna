@@ -1,7 +1,7 @@
 {
   "private": true,
-  "displayName": "Plugin Name",
-  "name": "homebridge-plugin-name",
+  "displayName": "OpenSauna",
+  "name": "homebridge-opensauna",
   "version": "1.0.0",
   "description": "A short description about what your plugin does.",
   "license": "Apache-2.0",
@@ -19,6 +19,7 @@
   },
   "main": "dist/index.js",
   "scripts": {
+    "test": "jest",
     "lint": "eslint src/**/*.ts --max-warnings=0",
     "watch": "npm run build && npm link && nodemon",
     "build": "rimraf ./dist && tsc",
@@ -28,14 +29,24 @@
     "homebridge-plugin"
   ],
   "devDependencies": {
-    "@types/node": "^20.14.12",
+    "@types/i2c-bus": "^5.1.2",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.14",
     "@typescript-eslint/eslint-plugin": "^7.17.0",
     "@typescript-eslint/parser": "^7.17.0",
     "eslint": "^8.57.0",
     "homebridge": "^2.0.0-beta.0",
+    "i2c-bus": "^5.2.3",
+    "jest": "^29.7.0",
+    "mcp-spi-adc": "^3.2.0",
     "nodemon": "^3.1.4",
+    "pigpio": "^3.3.1",
     "rimraf": "^6.0.1",
+    "ts-jest": "^29.2.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "20": "^3.1.9"
   }
 }
