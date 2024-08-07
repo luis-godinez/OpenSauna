@@ -22,22 +22,38 @@
       },
       "auxSensors": [
         {
-          "name": "Aux2",
-          "channel": 2,
-          "associatedSystem": "sauna",
-          "impactControl": true
+          "name": "PCB_NTC",
+          "channel": 0,
+          "system": "controller",
+          "control": false
         },
         {
-          "name": "Aux3",
-          "channel": 3,
-          "associatedSystem": "steam",
-          "impactControl": false
+          "name": "SAUNA_NTC",
+          "channel": 1,
+          "system": "sauna",
+          "control": true
+        },
+        {
+          "name": "Outside",
+          "channel": 2,
+          "system": null,
+          "control": false
         }
       ],
       "targetTemperatures": {
         "sauna": 80,
         "steam": 40
-      }
+      },
+      "saunaOnWhileDoorOpen": true,
+      "steamOnWhileDoorOpen": true,
+      "saunaTimeout": 60,
+      "steamTimeout": 60,
+      "saunaMaxTemperature": 100,
+      "steamMaxTemperature": 60,
+      "steamMaxHumidity": 60,
+      "saunaSafetyTemperature": 120,
+      "steamSafetyTemperature": 60,
+      "controllerSafetyTemperature": 90
     }
   ]
 }

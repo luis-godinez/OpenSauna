@@ -1,3 +1,5 @@
+// src/platform.ts
+
 import {
   API,
   DynamicPlatformPlugin,
@@ -42,6 +44,20 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     }
 
     const devices = this.config as OpenSaunaConfig;
+
+    // Set default values for new settings if not provided
+    devices.saunaOnWhileDoorOpen = devices.saunaOnWhileDoorOpen ?? true;
+    devices.steamOnWhileDoorOpen = devices.steamOnWhileDoorOpen ?? true;
+    devices.saunaTimeout = devices.saunaTimeout ?? 60; // in minutes
+    devices.steamTimeout = devices.steamTimeout ?? 60; // in minutes
+    devices.saunaMaxTemperature =
+      devices.saunaMaxTemperature ?? (devices.temperatureUnitFahrenheit ? 212 : 100);
+    devices.steamMaxTemperature =
+      devices.steamMaxTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
+    devices.steamMaxHumidity = devices.steamMaxHumidity ?? 60; // in percent
+    devices.saunaSafetyTemperature = devices.saunaSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 248 : 120);
+    devices.steamSafetyTemperature = devices.steamSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
+    devices.controllerSafetyTemperature = devices.controllerSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 194 : 90);
 
     // Conditionally add Sauna accessory
     if (devices.hasSauna) {
@@ -109,13 +125,17 @@ function isOpenSaunaConfig(config: PlatformConfig): config is OpenSaunaConfig {
     config.gpioPins !== undefined &&
     typeof config.gpioPins.saunaDoorPin === 'number' &&
     typeof config.gpioPins.steamDoorPin === 'number' &&
+    config.auxSensors !== undefined &&
+    Array.isArray(config.auxSensors) &&
     Array.isArray(config.gpioPins.saunaPowerPins) &&
     Array.isArray(config.gpioPins.steamPowerPins) &&
-    Array.isArray(config.auxSensors) &&
-    config.auxSensors.every(sensor =>
-      typeof sensor.name === 'string' &&
-      typeof sensor.channel === 'number' &&
-      typeof sensor.impactControl === 'boolean',
-    ) // Check if aux sensors are valid objects
+    typeof config.saunaOnWhileDoorOpen === 'boolean' &&
+    typeof config.steamOnWhileDoorOpen === 'boolean' &&
+    typeof config.saunaTimeout === 'number' &&
+    typeof config.steamTimeout === 'number' &&
+    typeof config.saunaMaxTemperature === 'number' &&
+    typeof config.steamMaxTemperature === 'number' &&
+    typeof config.steamMaxHumidity === 'number' &&
+    typeof config.controllerSafetyTemperature === 'number'
   );
 }

@@ -22,10 +22,11 @@ OpenSauna is designed to provide a generic sauna controller that allows users to
 - **Lighting Control:** Manage sauna or steam room lighting through HomeKit, providing convenience and control.
 - **Fan Control:** Integrate fan control to enhance ventilation and maintain desired environmental conditions.
 - **Door Sensors:** Monitor door status (open/closed) for sauna and steam rooms with configurable logic for different sensor types.
+- **Safety Mechanisms:** Automatically turn off all relays if the PCB or any component exceeds safety limits, with visual warnings through flashing lights.
 
 ## Optional Features
 
-- **Auxiliary Sensors:** Add additional temperature sensors for more precise control or monitoring. Sensors can be associated with the sauna or steam room or used for monitoring without impacting control logic.
+- **Auxiliary Sensors:** Add additional temperature sensors for more precise control or monitoring. Sensors can be associated with the sauna, steam room, or controller, or simply used for monitoring ambient temperature without impacting control logic.
 - **Customizable Temperature Units:** Users can select between Celsius and Fahrenheit for temperature display, ensuring compatibility with regional preferences.
 - **Configurable GPIO Pins:** Users can customize the GPIO pins used for controlling various components, offering flexibility for different hardware setups.
 - **Inverse Door Logic:** Supports inverse logic for door sensors to accommodate various installation configurations.
@@ -57,16 +58,32 @@ To configure the OpenSauna plugin, you can use the Homebridge UI or edit your `c
   },
   "auxSensors": [
     {
-      "name": "Aux Sensor 1",
+      "name": "PCB_NTC",
+      "channel": 0,
+      "system": "controller",
+      "control": false
+    },
+    {
+      "name": "SAUNA_NTC",
+      "channel": 1,
+      "system": "sauna",
+      "control": true
+    },
+    {
+      "name": "Outside",
       "channel": 2,
-      "associatedSystem": "sauna",
-      "impactControl": false
+      "system": null,
+      "control": null
     }
   ],
   "targetTemperatures": {
     "sauna": 80,
     "steam": 100
-  }
+  },
+  "saunaOnWhileDoorOpen": true,
+  "steamOnWhileDoorOpen": false,
+  "saunaTimeout": 60,
+  "steamTimeout": 60
 }
 ```
 

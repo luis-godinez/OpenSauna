@@ -1,41 +1,48 @@
 export const PLATFORM_NAME = 'OpenSauna';
 export const PLUGIN_NAME = 'homebridge-opensauna';
 
-// Configuration interface
 export interface OpenSaunaConfig {
-  platform: string; // The platform identifier, should match PLATFORM_NAME
-  name: string; // Name for the sauna system, displayed in Homebridge
-  hasSauna: boolean; // Indicates if the sauna functionality is available
-  hasSaunaSplitPhase: boolean; // False for 120V, True for 240V sauna configuration
-  hasSteam: boolean; // Indicates if the steam functionality is available
-  hasSteamSplitPhase: boolean; // False for 120V, True for 240V steam configuration
-  hasLight: boolean; // Indicates if light control is available
-  hasFan: boolean; // Indicates if fan control is available
-  inverseSaunaDoor: boolean; // True if sauna door sensor logic is inverted
-  inverseSteamDoor: boolean; // True if steam door sensor logic is inverted
-  temperatureUnitFahrenheit: boolean; // True for Fahrenheit, False for Celsius
-  gpioPins: GpioConfig; // GPIO configuration for controlling hardware
-  auxSensors: AuxSensorConfig[]; // Array of auxiliary sensors for additional readings
+  platform: string; // Name of the platform (e.g., "OpenSauna")
+  name: string; // Custom name for the sauna system
+  hasSauna: boolean; // Indicates if the sauna is present
+  hasSaunaSplitPhase: boolean; // Indicates if the sauna uses split phase power
+  hasSteam: boolean; // Indicates if the steam room is present
+  hasSteamSplitPhase: boolean; // Indicates if the steam room uses split phase power
+  hasLight: boolean; // Indicates if a light control is available
+  hasFan: boolean; // Indicates if a fan control is available
+  inverseSaunaDoor: boolean; // If true, door sensor logic is inverted for the sauna
+  inverseSteamDoor: boolean; // If true, door sensor logic is inverted for the steam room
+  temperatureUnitFahrenheit: boolean; // If true, temperatures are in Fahrenheit; otherwise, Celsius
+  gpioPins: GpioConfig; // Configuration of GPIO pins used in the system
+  auxSensors: AuxSensorConfig[]; // Configuration of auxiliary sensors
   targetTemperatures: {
-    sauna?: number; // Optional target temperature for sauna, in Celsius or Fahrenheit
-    steam?: number; // Optional target temperature for steam, in Celsius or Fahrenheit
+    sauna: number; // Target temperature for the sauna in degrees
+    steam: number; // Target temperature for the steam room in degrees
   };
+  saunaOnWhileDoorOpen: boolean; // Allows the sauna to be on while the door is open
+  steamOnWhileDoorOpen: boolean; // Allows the steam room to be on while the door is open
+  saunaTimeout: number; // Maximum runtime for the sauna in minutes before auto-shutdown
+  steamTimeout: number; // Maximum runtime for the steam room in minutes before auto-shutdown
+  saunaMaxTemperature: number; // Maximum user-configurable temperature for the sauna in degrees
+  steamMaxTemperature: number; // Maximum user-configurable temperature for the steam room in degrees
+  steamMaxHumidity: number; // Maximum user-configurable humidity for the steam room in percent
+  saunaSafetyTemperature: number; // Safety limit for sauna temperature in degrees (hard-coded)
+  steamSafetyTemperature: number; // Safety limit for steam room temperature in degrees (hard-coded)
+  controllerSafetyTemperature: number; // Safety limit for the controller board temperature in degrees (hard-coded)
 }
 
-// Configuration for GPIO pins
 export interface GpioConfig {
-  saunaPowerPins: number[]; // Array of GPIO pins for sauna power control
-  steamPowerPins: number[]; // Array of GPIO pins for steam power control
-  lightPin?: number; // Optional GPIO pin for light control
-  fanPin?: number; // Optional GPIO pin for fan control
-  saunaDoorPin: number; // GPIO pin for sauna door sensor
-  steamDoorPin: number; // GPIO pin for steam door sensor
+  saunaPowerPins: number[]; // GPIO pins for sauna power control
+  steamPowerPins: number[]; // GPIO pins for steam room power control
+  lightPin?: number; // GPIO pin for light control (optional)
+  fanPin?: number; // GPIO pin for fan control (optional)
+  saunaDoorPin?: number; // GPIO pin for sauna door sensor (optional)
+  steamDoorPin?: number; // GPIO pin for steam door sensor (optional)
 }
 
-// Configuration for auxiliary sensors
 export interface AuxSensorConfig {
-  name: string; // Name or label for the auxiliary sensor
-  channel: number; // ADC channel number for the auxiliary sensor
-  associatedSystem?: 'sauna' | 'steam'; // System the sensor is associated with, if any
-  impactControl: boolean; // Whether this sensor impacts system control logic
+  name: string; // Name of the auxiliary sensor
+  channel: number; // ADC channel number associated with the sensor
+  system: 'sauna' | 'steam' | 'controller' | null; // The sensor to system association, or null if not associated
+  control: boolean; // Whether the sensor affects control logic (e.g., turns off power if overheating)
 }

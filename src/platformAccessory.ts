@@ -1,3 +1,4 @@
+// Import necessary modules
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { OpenSaunaPlatform } from './platform';
 import { Gpio } from 'pigpio'; // Updated import from pigpio
@@ -24,12 +25,19 @@ export class OpenSaunaAccessory {
   private adc: Mcp3008; // Define adc
   private i2cBus!: i2c.PromisifiedBus; // Define i2cBus
 
+  private saunaTimer: NodeJS.Timeout | null = null; // Timer for sauna power off
+  private temperatureIntervals: NodeJS.Timeout[] = []; // Track temperature intervals
+  private humidityInterval: NodeJS.Timeout | null = null; // Track humidity interval
+
   constructor(
     private readonly platform: OpenSaunaPlatform,
     private readonly accessory: PlatformAccessory,
     private readonly config: OpenSaunaConfig,
     private readonly accessoryType: 'sauna' | 'steam' | 'light' | 'fan',
   ) {
+    // Validate sensor configuration
+    this.validateSensorConfiguration();
+
     // Initialize the ADC
     this.adc = Mcp3008.open(0, { speedHz: 1350000 }, (err: Error | null) => {
       if (err) {
@@ -53,6 +61,25 @@ export class OpenSaunaAccessory {
 
     // Initialize all necessary services based on the type of accessory
     this.setupAccessory();
+  }
+
+  private validateSensorConfiguration() {
+    const systemCount: { [key: string]: number } = {};
+
+    this.config.auxSensors.forEach((sensor) => {
+      if (sensor.system) {
+        if (!systemCount[sensor.system]) {
+          systemCount[sensor.system] = 0;
+        }
+        systemCount[sensor.system]++;
+      }
+    });
+
+    for (const system in systemCount) {
+      if (systemCount[system] > 1) {
+        throw new Error(`Only one NTC sensor is allowed for the ${system} system.`);
+      }
+    }
   }
 
   private setupAccessory() {
@@ -152,7 +179,10 @@ export class OpenSaunaAccessory {
           `aux-${sensor.channel}`,
         );
 
-      this.auxTemperatureSensors.set(sensorName, auxSensorService);
+      // Store the service in the map for later updates
+      if (auxSensorService) {
+        this.auxTemperatureSensors.set(sensorName, auxSensorService);
+      }
     });
 
     // Setup steam temperature and humidity sensors
@@ -199,6 +229,12 @@ export class OpenSaunaAccessory {
   private handleSaunaPowerSet(value: CharacteristicValue) {
     this.platform.log.info('Sauna Power set to:', value);
     this.setPowerState(this.config.gpioPins.saunaPowerPins, value);
+
+    if (value) {
+      this.startSauna(); // Start the sauna with timeout
+    } else {
+      this.stopSauna(); // Stop the sauna immediately
+    }
   }
 
   private handleSteamPowerSet(value: CharacteristicValue) {
@@ -224,15 +260,41 @@ export class OpenSaunaAccessory {
     }
   }
 
-  // Handle target temperature set events
+  // Handle target temperature set events for sauna
   private handleSaunaTargetTemperatureSet(value: CharacteristicValue) {
     this.platform.log.info('Sauna Target Temperature set to:', value);
     // Implement additional logic for sauna temperature control if needed
   }
 
+  // Handle target temperature set events for steam
   private handleSteamTargetTemperatureSet(value: CharacteristicValue) {
     this.platform.log.info('Steam Target Temperature set to:', value);
     // Implement additional logic for steam temperature control if needed
+  }
+
+  // Start the sauna with timeout logic
+  private startSauna() {
+    this.platform.log.info('Starting sauna with timeout...');
+    this.setPowerState(this.config.gpioPins.saunaPowerPins, true);
+
+    if (this.saunaTimer) {
+      clearTimeout(this.saunaTimer);
+    }
+
+    this.saunaTimer = setTimeout(() => {
+      this.stopSauna();
+    }, this.config.saunaTimeout * 1000);
+  }
+
+  // Stop the sauna and clear the timer
+  private stopSauna() {
+    this.platform.log.info('Stopping sauna...');
+    this.setPowerState(this.config.gpioPins.saunaPowerPins, false);
+
+    if (this.saunaTimer) {
+      clearTimeout(this.saunaTimer);
+      this.saunaTimer = null;
+    }
   }
 
   // Utility to set power state on GPIO
@@ -246,9 +308,8 @@ export class OpenSaunaAccessory {
 
   // Monitor temperatures using ADC channels
   private monitorTemperatures() {
-  // Add monitoring for configured auxiliary sensors
     this.config.auxSensors.forEach((sensor) => {
-      setInterval(() => {
+      const interval = setInterval(() => {
         this.adc.read(sensor.channel, (err: Error | null, reading: { value: number }) => {
           if (err) {
             this.platform.log.error(`Failed to read temperature for ${sensor.name}: ${err.message}`);
@@ -274,14 +335,97 @@ export class OpenSaunaAccessory {
               this.config.temperatureUnitFahrenheit ? 'F' : 'C'
             }`,
           );
+
+          this.handleTemperatureControl(sensor, temperatureCelsius);
+
+          if (sensor.name === 'PCB_NTC') {
+            this.monitorPcbTemperatureSafety(temperatureCelsius);
+          }
         });
-      }, 5000); // Check temperature every 5 seconds
+      }, 5000);
+
+      this.temperatureIntervals.push(interval);
     });
+  }
+
+  private handleTemperatureControl(sensor: AuxSensorConfig, temperatureCelsius: number) {
+    let powerPins: number[] | undefined;
+    let maxTemperature: number | undefined;
+    let safetyTemperature: number | undefined;
+
+    switch (sensor.system) {
+      case 'sauna':
+        powerPins = this.config.gpioPins.saunaPowerPins;
+        maxTemperature = this.config.saunaMaxTemperature;
+        safetyTemperature = this.config.saunaSafetyTemperature;
+        break;
+      case 'steam':
+        powerPins = this.config.gpioPins.steamPowerPins;
+        maxTemperature = this.config.steamMaxTemperature;
+        safetyTemperature = this.config.steamSafetyTemperature;
+        break;
+    }
+
+    if (powerPins) {
+      if (isNaN(temperatureCelsius)) {
+        // Handle the case where there is no signal
+        this.setPowerState(powerPins, false);
+        this.platform.log.error(`${sensor.name} has no valid signal. Power off due to no signal.`);
+      } else {
+        // First, check safety temperature to ensure critical shutdown
+        if (safetyTemperature !== undefined && temperatureCelsius > safetyTemperature) {
+          this.setPowerState(powerPins, false);
+          this.flashLights(10); // Flash warning lights
+          this.platform.log.error(`${sensor.name} exceeded safety temperature! Immediate power off and flashing lights.`);
+        }
+        // Then check normal operational max temperature
+        else if (maxTemperature !== undefined && temperatureCelsius > maxTemperature) {
+          this.setPowerState(powerPins, false);
+          this.flashLights(10); // Flash warning lights
+          this.platform.log.warn(`${sensor.name} exceeded max temperature. Power off and flashing lights.`);
+        }
+      }
+    }
+  }
+
+  // Monitor PCB temperature to ensure it doesn't exceed safety limits
+  private monitorPcbTemperatureSafety(temperatureCelsius: number) {
+    const safetyTemperature = this.config.controllerSafetyTemperature;
+    if (temperatureCelsius > safetyTemperature) {
+      this.disableAllRelays();
+      this.flashLights(10); // Flash warning lights
+      this.platform.log.error('Controller PCB temperature exceeded safety limit! All relays disabled and flashing lights.');
+    }
+  }
+
+  private flashLights(times: number) {
+    if (typeof this.config.gpioPins.lightPin === 'number') {
+      for (let i = 0; i < times; i++) {
+        this.setPowerState([this.config.gpioPins.lightPin], true);
+        // Use a delay mechanism here if needed
+        this.setPowerState([this.config.gpioPins.lightPin], false);
+      }
+    } else {
+      this.platform.log.error('Light pin is not configured.');
+    }
+  }
+
+  // Disable all relays and flash warning lights
+  private disableAllRelays() {
+    const allPins = [
+      ...this.config.gpioPins.saunaPowerPins,
+      ...this.config.gpioPins.steamPowerPins,
+      this.config.gpioPins.lightPin,
+      this.config.gpioPins.fanPin,
+    ].filter((pin): pin is number => pin !== undefined);
+
+    // Turn off all relays
+    this.setPowerState(allPins, false);
   }
 
   // Monitor humidity using I2C sensor
   private monitorHumidity() {
-    setInterval(async () => {
+    this.humidityInterval = setInterval(async () => {
       try {
         await this.i2cBus.writeByte(0x5c, 0x00, 0x00);
         await new Promise((resolve) => setTimeout(resolve, 1)); // Delay for wake-up
@@ -314,12 +458,30 @@ export class OpenSaunaAccessory {
             displayTemperature,
           );
         }
+
+        if (humidity > this.config.steamMaxHumidity) {
+          this.setPowerState(this.config.gpioPins.steamPowerPins, false);
+          this.platform.log.warn('Steam humidity exceeded max humidity. Steam power off.');
+        }
       } catch (err) {
         this.platform.log.error(
           `Failed to read humidity and temperature: ${(err as Error).message}`,
         );
       }
     }, 10000); // Check humidity every 10 seconds
+  }
+
+  private clearIntervalsAndTimeouts() {
+    if (this.saunaTimer) {
+      clearTimeout(this.saunaTimer);
+      this.saunaTimer = null;
+    }
+    this.temperatureIntervals.forEach((interval) => clearInterval(interval));
+    this.temperatureIntervals = [];
+    if (this.humidityInterval) {
+      clearInterval(this.humidityInterval);
+      this.humidityInterval = null;
+    }
   }
 
   // Monitor door states using GPIO
@@ -329,15 +491,19 @@ export class OpenSaunaAccessory {
         type: 'sauna',
         pin: this.config.gpioPins.saunaDoorPin,
         inverse: this.config.inverseSaunaDoor,
+        allowOnWhileOpen: this.config.saunaOnWhileDoorOpen,
+        powerPins: this.config.gpioPins.saunaPowerPins,
       },
       {
         type: 'steam',
         pin: this.config.gpioPins.steamDoorPin,
         inverse: this.config.inverseSteamDoor,
+        allowOnWhileOpen: this.config.steamOnWhileDoorOpen,
+        powerPins: this.config.gpioPins.steamPowerPins,
       },
     ];
 
-    doorSensors.forEach(({ type, pin, inverse }) => {
+    doorSensors.forEach(({ type, pin, inverse, allowOnWhileOpen, powerPins }) => {
       if (pin !== undefined) {
         const doorSensor = new Gpio(pin, { mode: Gpio.INPUT, alert: true });
         doorSensor.on('alert', (level) => {
@@ -357,11 +523,18 @@ export class OpenSaunaAccessory {
             doorService.updateCharacteristic(
               this.platform.Characteristic.ContactSensorState,
               doorOpen
-                ? this.platform.Characteristic.ContactSensorState
-                  .CONTACT_DETECTED
-                : this.platform.Characteristic.ContactSensorState
-                  .CONTACT_NOT_DETECTED,
+                ? this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+                : this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
             );
+          }
+
+          if (doorOpen && !allowOnWhileOpen && powerPins) {
+            this.setPowerState(powerPins, false);
+            this.platform.log.warn(`${type} power off due to door open.`);
+          } else if (!doorOpen && !allowOnWhileOpen && powerPins) {
+            // Ensure the heater is resumed only when it was initially turned off due to the door open state
+            this.setPowerState(powerPins, true);
+            this.platform.log.info(`${type} power resumed as door closed.`);
           }
         });
 
@@ -375,6 +548,7 @@ export class OpenSaunaAccessory {
     });
   }
 
+  // Utility function to convert Celsius to Fahrenheit
   private convertToFahrenheit(celsius: number): number {
     return celsius * 1.8 + 32;
   }
