@@ -16,5 +16,6 @@ export default {
   testMatch: ['**/src/__tests__/**/*.test.ts'], // Ensure this matches your test file location
   moduleFileExtensions: ['ts', 'js', 'json'],
   verbose: true,
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/src/jest.setup.ts'],
+  modulePathIgnorePatterns: ['<rootDir>/dist/'], // Ignore dist directory
 };

@@ -2,7 +2,7 @@ import { OpenSaunaAccessory } from '../platformAccessory';
 import { OpenSaunaPlatform } from '../platform';
 import { PlatformAccessory, API, Logger, PlatformConfig } from 'homebridge';
 import { OpenSaunaConfig } from '../settings';
-import { mockDigitalWrite, mockOn } from '../../jest.setup';
+import { mockDigitalWrite, mockOn } from '../jest.setup';
 
 // Mock Homebridge API and services
 const mockTemperatureSensorService = {
@@ -169,7 +169,7 @@ describe('OpenSaunaAccessory Sauna Tests', () => {
 
   afterEach(() => {
     // Ensure cleanup of timers and intervals
-    (saunaAccessory as any).clearIntervalsAndTimeouts();
+    (saunaAccessory as OpenSaunaAccessory).clearIntervalsAndTimeouts();
     jest.clearAllTimers();
   });
 

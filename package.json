@@ -1,17 +1,17 @@
 {
-  "private": true,
+  "private": false,
   "displayName": "OpenSauna",
   "name": "homebridge-opensauna",
   "version": "1.0.0",
-  "description": "A short description about what your plugin does.",
+  "description": "Homebridge plugin for controlling a sauna.",
+  "author": "Luis Godinez <luis@ungodly.design>",
   "license": "Apache-2.0",
-  "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/USERNAME/GITHUB_PROJECT_NAME.git"
+    "url": "git+https://github.com/luis-godinez/OpenSauna.git"
   },
   "bugs": {
-    "url": "https://github.com/USERNAME/GITHUB_PROJECT_NAME/issues"
+    "url": "https://github.com/luis-godinez/OpenSauna/issues"
   },
   "engines": {
     "node": "^18.20.4 || ^20.16.0 || ^22.5.1",
@@ -23,14 +23,13 @@
     "lint": "eslint src/**/*.ts --max-warnings=0",
     "watch": "npm run build && npm link && nodemon",
     "build": "rimraf ./dist && tsc",
+    "clean": "rimraf ./dist",
     "prepublishOnly": "npm run lint && npm run build"
   },
   "keywords": [
     "homebridge-plugin"
   ],
   "devDependencies": {
-    "@babel/core": "^7.25.2",
-    "@babel/preset-env": "^7.25.3",
     "@types/i2c-bus": "^5.1.2",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.14",
@@ -50,6 +49,8 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
-    "20": "^3.1.9"
+    "i2c-bus": "^5.2.3",
+    "mcp-spi-adc": "^3.2.0",
+    "pigpio": "^3.3.1"
   }
 }

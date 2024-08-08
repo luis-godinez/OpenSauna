@@ -2,7 +2,7 @@ import { OpenSaunaAccessory } from '../platformAccessory';
 import { OpenSaunaPlatform } from '../platform';
 import { PlatformAccessory, API, Logger, PlatformConfig } from 'homebridge';
 import { OpenSaunaConfig } from '../settings';
-import { mockDigitalWrite } from '../../jest.setup';
+import { mockDigitalWrite } from '../jest.setup';
 
 // Mock Homebridge API and services
 const mockTemperatureSensorService = {
@@ -53,7 +53,7 @@ const mockAPI: API = {
   updatePlatformAccessories: jest.fn(),
   publishExternalAccessories: jest.fn(),
   registerAccessory: jest.fn(),
-} as any;
+} as unknown as API;
 
 const mockLogger: Logger = {
   debug: jest.fn(),
@@ -61,7 +61,7 @@ const mockLogger: Logger = {
   info: jest.fn(),
   log: jest.fn(),
   warn: jest.fn(),
-} as any;
+} as unknown as Logger;
 
 describe('OpenSaunaAccessory Light Tests', () => {
   let platform: OpenSaunaPlatform;

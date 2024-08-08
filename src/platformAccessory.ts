@@ -2,7 +2,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { OpenSaunaPlatform } from './platform';
 import { Gpio } from 'pigpio'; // Updated import from pigpio
-import { Mcp3008 } from 'mcp-spi-adc'; // Import Mcp3008
+import { Mcp3008 } from 'mcp-spi-adc';
 import i2c from 'i2c-bus'; // Assume types declared in typings.d.ts
 import { OpenSaunaConfig, AuxSensorConfig } from './settings';
 
@@ -22,7 +22,7 @@ export class OpenSaunaAccessory {
   private auxTemperatureSensors: Map<string, Service> = new Map();
 
   private gpioPins: Gpio[] = [];
-  private adc: Mcp3008; // Define adc
+  private adc!: Mcp3008; // Define adc
   private i2cBus!: i2c.PromisifiedBus; // Define i2cBus
 
   private saunaTimer: NodeJS.Timeout | null = null; // Timer for sauna power off
@@ -39,9 +39,12 @@ export class OpenSaunaAccessory {
     this.validateSensorConfiguration();
 
     // Initialize the ADC
-    this.adc = Mcp3008.open(0, { speedHz: 1350000 }, (err: Error | null) => {
+    Mcp3008.open(0, { speedHz: 1350000 }, (err: Error | null, adcInstance) => {
       if (err) {
         this.platform.log.error('Failed to open ADC:', err.message);
+      } else {
+        this.adc = adcInstance;
+        this.platform.log.info('ADC successfully opened.');
       }
     });
 
@@ -309,42 +312,51 @@ export class OpenSaunaAccessory {
   // Monitor temperatures using ADC channels
   private monitorTemperatures() {
     this.config.auxSensors.forEach((sensor) => {
-      const interval = setInterval(() => {
-        this.adc.read(sensor.channel, (err: Error | null, reading: { value: number }) => {
-          if (err) {
-            this.platform.log.error(`Failed to read temperature for ${sensor.name}: ${err.message}`);
-            return;
-          }
+      // Open the channel for each sensor
+      Mcp3008.open(sensor.channel, { speedHz: 1350000 }, (err, adc) => {
+        if (err) {
+          this.platform.log.error(`Failed to open channel for sensor "${sensor.name}": ${err.message}`);
+          return;
+        }
 
-          const temperatureCelsius = (reading.value * 3.3 - 0.5) * 100;
-          const displayTemperature = this.config.temperatureUnitFahrenheit
-            ? this.convertToFahrenheit(temperatureCelsius)
-            : temperatureCelsius;
+        const interval = setInterval(() => {
+          adc.read((err: Error | null, reading: { value: number }) => {
+            if (err) {
+              this.platform.log.error(`Failed to read temperature for sensor "${sensor.name}": ${err.message}`);
+              return;
+            }
 
-          const auxSensorService = this.auxTemperatureSensors.get(sensor.name);
+            // Assuming reading.value is between 0 and 1, adjust the formula as per your sensor specification
+            const temperatureCelsius = (reading.value * 3.3 - 0.5) * 100;
+            const displayTemperature = this.config.temperatureUnitFahrenheit
+              ? this.convertToFahrenheit(temperatureCelsius)
+              : temperatureCelsius;
 
-          if (auxSensorService) {
-            auxSensorService.updateCharacteristic(
-              this.platform.Characteristic.CurrentTemperature,
-              displayTemperature,
+            // Update the temperature characteristic in HomeKit
+            const auxSensorService = this.auxTemperatureSensors.get(sensor.name);
+            if (auxSensorService) {
+              auxSensorService.updateCharacteristic(
+                this.platform.Characteristic.CurrentTemperature,
+                displayTemperature,
+              );
+            }
+
+            this.platform.log.info(
+              `${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °${this.config.temperatureUnitFahrenheit ? 'F' : 'C'}`,
             );
-          }
 
-          this.platform.log.info(
-            `${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °${
-              this.config.temperatureUnitFahrenheit ? 'F' : 'C'
-            }`,
-          );
+            // Perform temperature-based actions
+            this.handleTemperatureControl(sensor, temperatureCelsius);
 
-          this.handleTemperatureControl(sensor, temperatureCelsius);
+            // Additional safety check for PCB temperature
+            if (sensor.name === 'PCB_NTC') {
+              this.monitorPcbTemperatureSafety(temperatureCelsius);
+            }
+          });
+        }, 5000);
 
-          if (sensor.name === 'PCB_NTC') {
-            this.monitorPcbTemperatureSafety(temperatureCelsius);
-          }
-        });
-      }, 5000);
-
-      this.temperatureIntervals.push(interval);
+        this.temperatureIntervals.push(interval);
+      });
     });
   }
 
@@ -471,7 +483,7 @@ export class OpenSaunaAccessory {
     }, 10000); // Check humidity every 10 seconds
   }
 
-  private clearIntervalsAndTimeouts() {
+  public clearIntervalsAndTimeouts() {
     if (this.saunaTimer) {
       clearTimeout(this.saunaTimer);
       this.saunaTimer = null;
