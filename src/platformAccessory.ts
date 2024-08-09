@@ -2,7 +2,8 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { OpenSaunaPlatform } from './platform.js';
 import { Gpio } from 'pigpio'; // Updated import from pigpio
-import { Mcp3008 } from 'mcp-spi-adc';
+import pkg from 'mcp-spi-adc';
+const { Mcp3008 } = pkg;
 import i2c from 'i2c-bus'; // Assume types declared in typings.d.ts
 import { OpenSaunaConfig, AuxSensorConfig } from './settings.js';
 
@@ -22,7 +23,7 @@ export class OpenSaunaAccessory {
   private auxTemperatureSensors: Map<string, Service> = new Map();
 
   private gpioPins: Gpio[] = [];
-  private adc!: Mcp3008; // Define adc
+  private adc!: InstanceType<typeof Mcp3008>; // Define adc
   private i2cBus!: i2c.PromisifiedBus; // Define i2cBus
 
   private saunaTimer: NodeJS.Timeout | null = null; // Timer for sauna power off
