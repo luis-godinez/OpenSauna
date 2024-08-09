@@ -2,8 +2,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { OpenSaunaPlatform } from './platform.js';
 import { Gpio } from 'pigpio'; // Updated import from pigpio
-import pkg from 'mcp-spi-adc';
-const { Mcp3008 } = pkg;
+import { openMcp3008, McpInterface, McpReading, EightChannels } from 'mcp-spi-adc';
 import i2c from 'i2c-bus'; // Assume types declared in typings.d.ts
 import { OpenSaunaConfig, AuxSensorConfig } from './settings.js';
 
@@ -23,7 +22,7 @@ export class OpenSaunaAccessory {
   private auxTemperatureSensors: Map<string, Service> = new Map();
 
   private gpioPins: Gpio[] = [];
-  private adc!: InstanceType<typeof Mcp3008>; // Define adc
+  private adc!: McpInterface; // Define adc as McpInterface
   private i2cBus!: i2c.PromisifiedBus; // Define i2cBus
 
   private saunaTimer: NodeJS.Timeout | null = null; // Timer for sauna power off
@@ -40,12 +39,12 @@ export class OpenSaunaAccessory {
     this.validateSensorConfiguration();
 
     // Initialize the ADC
-    Mcp3008.open(0, { speedHz: 1350000 }, (err: Error | null, adcInstance) => {
-      if (err) {
-        this.platform.log.error('Failed to open ADC:', err.message);
+    // Initialize the ADC using openMcp3008
+    openMcp3008(0, { speedHz: 1350000 }, (error: string) => {
+      if (error) {
+        console.error('Failed to open ADC:', error);
       } else {
-        this.adc = adcInstance;
-        this.platform.log.info('ADC successfully opened.');
+        console.log('ADC opened successfully.');
       }
     });
 
@@ -311,29 +310,33 @@ export class OpenSaunaAccessory {
   }
 
   // Monitor temperatures using ADC channels
+  // Monitor temperatures using ADC channels
   private monitorTemperatures() {
     this.config.auxSensors.forEach((sensor) => {
-      // Open the channel for each sensor
-      Mcp3008.open(sensor.channel, { speedHz: 1350000 }, (err, adc) => {
+      const adcChannel = sensor.channel as EightChannels;
+
+      // Open ADC channel for each sensor
+      this.adc = openMcp3008(adcChannel, { speedHz: 1350000 }, (err: string) => {
         if (err) {
-          this.platform.log.error(`Failed to open channel for sensor "${sensor.name}": ${err.message}`);
+          this.platform.log.error(`Failed to open ADC channel ${adcChannel} for sensor "${sensor.name}": ${err}`);
           return;
         }
 
+        // Set up a regular interval to read from the ADC channel
         const interval = setInterval(() => {
-          adc.read((err: Error | null, reading: { value: number }) => {
+          this.adc.read((err: string | null, reading: McpReading) => {
             if (err) {
-              this.platform.log.error(`Failed to read temperature for sensor "${sensor.name}": ${err.message}`);
+              this.platform.log.error(`Failed to read temperature for sensor "${sensor.name}": ${err}`);
               return;
             }
 
-            // Assuming reading.value is between 0 and 1, adjust the formula as per your sensor specification
+            // Convert the ADC reading to a temperature value
             const temperatureCelsius = (reading.value * 3.3 - 0.5) * 100;
             const displayTemperature = this.config.temperatureUnitFahrenheit
               ? this.convertToFahrenheit(temperatureCelsius)
               : temperatureCelsius;
 
-            // Update the temperature characteristic in HomeKit
+            // Update the HomeKit characteristic with the current temperature
             const auxSensorService = this.auxTemperatureSensors.get(sensor.name);
             if (auxSensorService) {
               auxSensorService.updateCharacteristic(
@@ -346,10 +349,10 @@ export class OpenSaunaAccessory {
               `${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °${this.config.temperatureUnitFahrenheit ? 'F' : 'C'}`,
             );
 
-            // Perform temperature-based actions
+            // Perform actions based on the temperature reading
             this.handleTemperatureControl(sensor, temperatureCelsius);
 
-            // Additional safety check for PCB temperature
+            // Perform additional safety checks for PCB temperature
             if (sensor.name === 'PCB_NTC') {
               this.monitorPcbTemperatureSafety(temperatureCelsius);
             }
