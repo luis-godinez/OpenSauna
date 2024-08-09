@@ -9,8 +9,8 @@ import {
   Service,
   Characteristic,
 } from 'homebridge';
-import { PLATFORM_NAME, PLUGIN_NAME, OpenSaunaConfig } from './settings';
-import { OpenSaunaAccessory } from './platformAccessory';
+import { PLATFORM_NAME, PLUGIN_NAME, OpenSaunaConfig } from './settings.js';
+import { OpenSaunaAccessory } from './platformAccessory.js';
 
 export class OpenSaunaPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service;

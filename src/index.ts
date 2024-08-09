@@ -1,6 +1,6 @@
 import { API } from 'homebridge';
-import { PLATFORM_NAME } from './settings';
-import { OpenSaunaPlatform } from './platform';
+import { PLATFORM_NAME } from './settings.js';
+import { OpenSaunaPlatform } from './platform.js';
 
 // Register the platform with Homebridge using default export
 const registerPlatform = (api: API) => {

@@ -1,10 +1,10 @@
 // Import necessary modules
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
-import { OpenSaunaPlatform } from './platform';
+import { OpenSaunaPlatform } from './platform.js';
 import { Gpio } from 'pigpio'; // Updated import from pigpio
 import { Mcp3008 } from 'mcp-spi-adc';
 import i2c from 'i2c-bus'; // Assume types declared in typings.d.ts
-import { OpenSaunaConfig, AuxSensorConfig } from './settings';
+import { OpenSaunaConfig, AuxSensorConfig } from './settings.js';
 
 export class OpenSaunaAccessory {
   private saunaPowerSwitch?: Service;
