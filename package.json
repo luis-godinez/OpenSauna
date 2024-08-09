@@ -6,6 +6,7 @@
   "description": "Homebridge plugin for controlling a sauna.",
   "author": "Luis Godinez <luis@ungodly.design>",
   "license": "Apache-2.0",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/luis-godinez/OpenSauna.git"
