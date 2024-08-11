@@ -362,7 +362,6 @@ export class OpenSaunaAccessory {
   }
 
   // Monitor temperatures using ADC channels
-  // Monitor temperatures using ADC channels
   private monitorTemperatures() {
     this.config.auxSensors.forEach((sensor) => {
       const adcChannel = sensor.channel as EightChannels;
@@ -573,6 +572,12 @@ export class OpenSaunaAccessory {
 
     doorSensors.forEach(({ type, pin, inverse, allowOnWhileOpen, powerPins }) => {
       if (pin !== undefined) {
+        try {
+          rpio.poll(pin, null); // Unregister existing poll to avoid duplicate listeners
+        } catch (error) {
+          this.platform.log.error(`Error unregistering poll for pin ${pin}: ${error}`);
+        }
+
         rpio.poll(pin, () => {
           const doorOpen = inverse ? rpio.read(pin) === 0 : rpio.read(pin) === 1;
           this.platform.log.info(
@@ -594,7 +599,7 @@ export class OpenSaunaAccessory {
                 : this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
             );
           }
-
+          // Ensure the heater turns off if set to not operate with door open.
           if (doorOpen && !allowOnWhileOpen && powerPins) {
             this.setPowerState(powerPins, false);
             this.platform.log.warn(`${type} power off due to door open.`);
