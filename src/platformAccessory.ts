@@ -1,7 +1,7 @@
 // Import necessary modules
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { OpenSaunaPlatform } from './platform.js';
-import { Gpio } from 'pigpio'; // Updated import from pigpio
+import rpio from 'rpio'; // Updated import to use rpio
 import { openMcp3008, McpInterface, McpReading, EightChannels } from 'mcp-spi-adc';
 import i2c from 'i2c-bus'; // Assume types declared in typings.d.ts
 import { OpenSaunaConfig, AuxSensorConfig } from './settings.js';
@@ -21,7 +21,6 @@ export class OpenSaunaAccessory {
   private steamDoorSensor?: Service;
   private auxTemperatureSensors: Map<string, Service> = new Map();
 
-  private gpioPins: Gpio[] = [];
   private adc!: McpInterface; // Define adc as McpInterface
   private i2cBus!: i2c.PromisifiedBus; // Define i2cBus
 
@@ -38,7 +37,6 @@ export class OpenSaunaAccessory {
     // Validate sensor configuration
     this.validateSensorConfiguration();
 
-    // Initialize the ADC
     // Initialize the ADC using openMcp3008
     openMcp3008(0, { speedHz: 1350000 }, (error: string) => {
       if (error) {
@@ -64,6 +62,19 @@ export class OpenSaunaAccessory {
 
     // Initialize all necessary services based on the type of accessory
     this.setupAccessory();
+
+    // Ensure GPIO pins are cleaned up on process exit
+    process.on('exit', this.cleanupGpioPins.bind(this));
+    process.on('SIGINT', () => {
+      // Handle Ctrl+C signal
+      this.cleanupGpioPins();
+      process.exit();
+    });
+    process.on('SIGTERM', () => {
+      // Handle termination signal
+      this.cleanupGpioPins();
+      process.exit();
+    });
   }
 
   private validateSensorConfiguration() {
@@ -85,7 +96,45 @@ export class OpenSaunaAccessory {
     }
   }
 
+  // Initialize GPIO pins during setup
+  private initializeGpioPins() {
+    this.config.gpioPins.saunaPowerPins.forEach((pin) => rpio.open(pin, rpio.OUTPUT, rpio.LOW));
+    this.config.gpioPins.steamPowerPins.forEach((pin) => rpio.open(pin, rpio.OUTPUT, rpio.LOW));
+    if (this.config.gpioPins.lightPin !== undefined) {
+      rpio.open(this.config.gpioPins.lightPin, rpio.OUTPUT, rpio.LOW);
+    }
+    if (this.config.gpioPins.fanPin !== undefined) {
+      rpio.open(this.config.gpioPins.fanPin, rpio.OUTPUT, rpio.LOW);
+    }
+    if (this.config.gpioPins.saunaDoorPin !== undefined) {
+      rpio.open(this.config.gpioPins.saunaDoorPin, rpio.INPUT, rpio.PULL_DOWN); // Or PULL_UP, as needed
+    }
+    if (this.config.gpioPins.steamDoorPin !== undefined) {
+      rpio.open(this.config.gpioPins.steamDoorPin, rpio.INPUT, rpio.PULL_DOWN); // Or PULL_DOWN, as needed
+    }
+  }
+
+  // Close GPIO pins during cleanup
+  private cleanupGpioPins() {
+    this.config.gpioPins.saunaPowerPins.forEach((pin) => rpio.close(pin));
+    this.config.gpioPins.steamPowerPins.forEach((pin) => rpio.close(pin));
+    if (this.config.gpioPins.lightPin !== undefined) {
+      rpio.close(this.config.gpioPins.lightPin);
+    }
+    if (this.config.gpioPins.fanPin !== undefined) {
+      rpio.close(this.config.gpioPins.fanPin);
+    }
+    if (this.config.gpioPins.saunaDoorPin !== undefined) {
+      rpio.close(this.config.gpioPins.saunaDoorPin);
+    }
+    if (this.config.gpioPins.steamDoorPin !== undefined) {
+      rpio.close(this.config.gpioPins.steamDoorPin);
+    }
+  }
+
   private setupAccessory() {
+    this.initializeGpioPins();
+
     // Setup switches
     this.saunaPowerSwitch =
       this.accessory.getService('Sauna Power') ||
@@ -226,6 +275,7 @@ export class OpenSaunaAccessory {
     this.monitorTemperatures();
     this.monitorHumidity();
     this.monitorDoors();
+    process.on('exit', this.cleanupGpioPins.bind(this));
   }
 
   // Handle power switch onSet events
@@ -248,18 +298,14 @@ export class OpenSaunaAccessory {
   private handleLightPowerSet(value: CharacteristicValue) {
     this.platform.log.info('Light Power set to:', value);
     if (this.config.gpioPins.lightPin !== undefined) {
-      const gpio = new Gpio(this.config.gpioPins.lightPin, {
-        mode: Gpio.OUTPUT,
-      });
-      gpio.digitalWrite(value ? 1 : 0);
+      rpio.write(this.config.gpioPins.lightPin, value ? rpio.HIGH : rpio.LOW);
     }
   }
 
   private handleFanPowerSet(value: CharacteristicValue) {
     this.platform.log.info('Fan Power set to:', value);
     if (this.config.gpioPins.fanPin !== undefined) {
-      const gpio = new Gpio(this.config.gpioPins.fanPin, { mode: Gpio.OUTPUT });
-      gpio.digitalWrite(value ? 1 : 0);
+      rpio.write(this.config.gpioPins.fanPin, value ? rpio.HIGH : rpio.LOW);
     }
   }
 
@@ -302,10 +348,11 @@ export class OpenSaunaAccessory {
 
   // Utility to set power state on GPIO
   private setPowerState(pins: number[], state: CharacteristicValue) {
-    const powerState = state ? 1 : 0;
+    const powerState = state ? rpio.HIGH : rpio.LOW;
     pins.forEach((pin) => {
-      const gpio = new Gpio(pin, { mode: Gpio.OUTPUT });
-      gpio.digitalWrite(powerState);
+      rpio.open(pin, rpio.OUTPUT);
+      rpio.write(pin, powerState);
+      rpio.close(pin);
     });
   }
 
@@ -521,9 +568,8 @@ export class OpenSaunaAccessory {
 
     doorSensors.forEach(({ type, pin, inverse, allowOnWhileOpen, powerPins }) => {
       if (pin !== undefined) {
-        const doorSensor = new Gpio(pin, { mode: Gpio.INPUT, alert: true });
-        doorSensor.on('alert', (level) => {
-          const doorOpen = inverse ? level === 0 : level === 1;
+        rpio.poll(pin, () => {
+          const doorOpen = inverse ? rpio.read(pin) === 0 : rpio.read(pin) === 1;
           this.platform.log.info(
             `${type.charAt(0).toUpperCase() + type.slice(1)} Door ${
               doorOpen ? 'Open' : 'Closed'
@@ -552,12 +598,7 @@ export class OpenSaunaAccessory {
             this.setPowerState(powerPins, true);
             this.platform.log.info(`${type} power resumed as door closed.`);
           }
-        });
-
-        // Clean up on shutdown
-        process.on('exit', () => {
-          doorSensor.digitalWrite(0); // Ensure the pin is in a safe state
-        });
+        }, rpio.POLL_BOTH); // Ensure both rising and falling edges are detected
       } else {
         this.platform.log.warn(`No door pin configured for ${type}`);
       }

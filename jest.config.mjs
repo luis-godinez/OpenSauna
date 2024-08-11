@@ -8,7 +8,7 @@ export default {
       'ts-jest',
       {
         useESM: true,
-        tsconfig: 'tsconfig.json', // Points to your tsconfig.json
+        tsconfig: '<rootDir>/tsconfig.json',
       },
     ],
   },
@@ -18,4 +18,8 @@ export default {
   verbose: true,
   setupFilesAfterEnv: ['<rootDir>/src/jest.setup.ts'],
   modulePathIgnorePatterns: ['<rootDir>/dist/'], // Ignore dist directory
+  // existing config options
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1', // Strip .js extension for TypeScript files
+  },
 };
