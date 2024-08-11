@@ -555,7 +555,6 @@ export class OpenSaunaAccessory {
     }
   }
 
-  // Monitor door states using GPIO
   private monitorDoors() {
     const doorSensors = [
       {
@@ -576,7 +575,10 @@ export class OpenSaunaAccessory {
 
     doorSensors.forEach(({ type, pin, inverse, allowOnWhileOpen, powerPins }) => {
       if (pin !== undefined) {
-      // Set up polling with a callback function
+        // Remove existing poll if any
+        rpio.poll(pin, null);
+
+        // Set up polling with a callback function
         rpio.poll(pin, () => {
           const doorOpen = inverse ? rpio.read(pin) === 0 : rpio.read(pin) === 1;
           this.platform.log.info(
@@ -603,7 +605,7 @@ export class OpenSaunaAccessory {
             this.setPowerState(powerPins, false);
             this.platform.log.warn(`${type} power off due to door open.`);
           } else if (!doorOpen && !allowOnWhileOpen && powerPins) {
-          // Ensure the heater is resumed only when it was initially turned off due to the door open state
+            // Ensure the heater is resumed only when it was initially turned off due to the door open state
             this.setPowerState(powerPins, true);
             this.platform.log.info(`${type} power resumed as door closed.`);
           }
