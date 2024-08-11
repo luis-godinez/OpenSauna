@@ -34,6 +34,11 @@ export class OpenSaunaAccessory {
     private readonly config: OpenSaunaConfig,
     private readonly accessoryType: 'sauna' | 'steam' | 'light' | 'fan',
   ) {
+    // Initialize RPIO with desired options
+    rpio.init({
+      mapping: 'gpio', // Use GPIO pin numbering
+    });
+
     // Validate sensor configuration
     this.validateSensorConfiguration();
 
