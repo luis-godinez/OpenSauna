@@ -433,28 +433,24 @@ export class OpenSaunaAccessory {
         break;
     }
 
-    // Check for invalid readings (e.g., sensor disconnected)
-    const isInvalidReading = temperatureCelsius < -20 || temperatureCelsius > 150;
-
     if (powerPins) {
-      if (isInvalidReading || isNaN(temperatureCelsius)) {
-        // Handle the case where there is no signal or invalid signal
+      if (isNaN(temperatureCelsius)) {
+        // Handle the case where there is no signal
         this.setPowerState(powerPins, false);
-        this.platform.log.error(`${sensor.name} has an invalid signal. Power off due to invalid reading.`);
-        return; // Exit early since the reading is invalid
-      }
-
-      // First, check safety temperature to ensure critical shutdown
-      if (safetyTemperature !== undefined && temperatureCelsius > safetyTemperature) {
-        this.setPowerState(powerPins, false);
-        this.flashLights(10); // Flash warning lights
-        this.platform.log.error(`${sensor.name} exceeded safety temperature! Immediate power off and flashing lights.`);
-      }
-      // Then check normal operational max temperature
-      else if (maxTemperature !== undefined && temperatureCelsius > maxTemperature) {
-        this.setPowerState(powerPins, false);
-        this.flashLights(10); // Flash warning lights
-        this.platform.log.warn(`${sensor.name} exceeded max temperature. Power off and flashing lights.`);
+        this.platform.log.error(`${sensor.name} has no valid signal. Power off due to no signal.`);
+      } else {
+        // First, check safety temperature to ensure critical shutdown
+        if (safetyTemperature !== undefined && temperatureCelsius > safetyTemperature) {
+          this.setPowerState(powerPins, false);
+          this.flashLights(10); // Flash warning lights
+          this.platform.log.error(`${sensor.name} exceeded safety temperature! Immediate power off and flashing lights.`);
+        }
+        // Then check normal operational max temperature
+        else if (maxTemperature !== undefined && temperatureCelsius > maxTemperature) {
+          this.setPowerState(powerPins, false);
+          this.flashLights(10); // Flash warning lights
+          this.platform.log.warn(`${sensor.name} exceeded max temperature. Power off and flashing lights.`);
+        }
       }
     }
   }
@@ -555,6 +551,7 @@ export class OpenSaunaAccessory {
     }
   }
 
+  // Monitor door states using GPIO
   private monitorDoors() {
     const doorSensors = [
       {
@@ -575,10 +572,12 @@ export class OpenSaunaAccessory {
 
     doorSensors.forEach(({ type, pin, inverse, allowOnWhileOpen, powerPins }) => {
       if (pin !== undefined) {
-        // Remove existing poll if any
-        rpio.poll(pin, null);
+        try {
+          rpio.poll(pin, null); // Unregister existing poll to avoid duplicate listeners
+        } catch (error) {
+          this.platform.log.error(`Error unregistering poll for pin ${pin}: ${error}`);
+        }
 
-        // Set up polling with a callback function
         rpio.poll(pin, () => {
           const doorOpen = inverse ? rpio.read(pin) === 0 : rpio.read(pin) === 1;
           this.platform.log.info(
