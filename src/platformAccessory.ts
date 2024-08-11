@@ -433,24 +433,28 @@ export class OpenSaunaAccessory {
         break;
     }
 
+    // Check for invalid readings (e.g., sensor disconnected)
+    const isInvalidReading = temperatureCelsius < -20 || temperatureCelsius > 150;
+
     if (powerPins) {
-      if (isNaN(temperatureCelsius)) {
-        // Handle the case where there is no signal
+      if (isInvalidReading || isNaN(temperatureCelsius)) {
+        // Handle the case where there is no signal or invalid signal
         this.setPowerState(powerPins, false);
-        this.platform.log.error(`${sensor.name} has no valid signal. Power off due to no signal.`);
-      } else {
-        // First, check safety temperature to ensure critical shutdown
-        if (safetyTemperature !== undefined && temperatureCelsius > safetyTemperature) {
-          this.setPowerState(powerPins, false);
-          this.flashLights(10); // Flash warning lights
-          this.platform.log.error(`${sensor.name} exceeded safety temperature! Immediate power off and flashing lights.`);
-        }
-        // Then check normal operational max temperature
-        else if (maxTemperature !== undefined && temperatureCelsius > maxTemperature) {
-          this.setPowerState(powerPins, false);
-          this.flashLights(10); // Flash warning lights
-          this.platform.log.warn(`${sensor.name} exceeded max temperature. Power off and flashing lights.`);
-        }
+        this.platform.log.error(`${sensor.name} has an invalid signal. Power off due to invalid reading.`);
+        return; // Exit early since the reading is invalid
+      }
+
+      // First, check safety temperature to ensure critical shutdown
+      if (safetyTemperature !== undefined && temperatureCelsius > safetyTemperature) {
+        this.setPowerState(powerPins, false);
+        this.flashLights(10); // Flash warning lights
+        this.platform.log.error(`${sensor.name} exceeded safety temperature! Immediate power off and flashing lights.`);
+      }
+      // Then check normal operational max temperature
+      else if (maxTemperature !== undefined && temperatureCelsius > maxTemperature) {
+        this.setPowerState(powerPins, false);
+        this.flashLights(10); // Flash warning lights
+        this.platform.log.warn(`${sensor.name} exceeded max temperature. Power off and flashing lights.`);
       }
     }
   }
@@ -572,43 +576,40 @@ export class OpenSaunaAccessory {
 
     doorSensors.forEach(({ type, pin, inverse, allowOnWhileOpen, powerPins }) => {
       if (pin !== undefined) {
-        try {
-          rpio.poll(pin, null); // Unregister existing poll to avoid duplicate listeners
-        } catch (error) {
-          this.platform.log.error(`Error unregistering poll for pin ${pin}: ${error}`);
-        }
-
-        rpio.poll(pin, () => {
-          const doorOpen = inverse ? rpio.read(pin) === 0 : rpio.read(pin) === 1;
-          this.platform.log.info(
-            `${type.charAt(0).toUpperCase() + type.slice(1)} Door ${
-              doorOpen ? 'Open' : 'Closed'
-            }`,
-          );
-
-          const doorServiceName = `${
-            type.charAt(0).toUpperCase() + type.slice(1)
-          } Door`;
-          const doorService = this.accessory.getService(doorServiceName);
-
-          if (doorService) {
-            doorService.updateCharacteristic(
-              this.platform.Characteristic.ContactSensorState,
-              doorOpen
-                ? this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
-                : this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
+      // Set up polling only if not already set
+        if (!rpio.poll(pin)) {
+          rpio.poll(pin, () => {
+            const doorOpen = inverse ? rpio.read(pin) === 0 : rpio.read(pin) === 1;
+            this.platform.log.info(
+              `${type.charAt(0).toUpperCase() + type.slice(1)} Door ${
+                doorOpen ? 'Open' : 'Closed'
+              }`,
             );
-          }
-          // Ensure the heater turns off if set to not operate with door open.
-          if (doorOpen && !allowOnWhileOpen && powerPins) {
-            this.setPowerState(powerPins, false);
-            this.platform.log.warn(`${type} power off due to door open.`);
-          } else if (!doorOpen && !allowOnWhileOpen && powerPins) {
+
+            const doorServiceName = `${
+              type.charAt(0).toUpperCase() + type.slice(1)
+            } Door`;
+            const doorService = this.accessory.getService(doorServiceName);
+
+            if (doorService) {
+              doorService.updateCharacteristic(
+                this.platform.Characteristic.ContactSensorState,
+                doorOpen
+                  ? this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+                  : this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
+              );
+            }
+            // Ensure the heater turns off if set to not operate with door open.
+            if (doorOpen && !allowOnWhileOpen && powerPins) {
+              this.setPowerState(powerPins, false);
+              this.platform.log.warn(`${type} power off due to door open.`);
+            } else if (!doorOpen && !allowOnWhileOpen && powerPins) {
             // Ensure the heater is resumed only when it was initially turned off due to the door open state
-            this.setPowerState(powerPins, true);
-            this.platform.log.info(`${type} power resumed as door closed.`);
-          }
-        }, rpio.POLL_BOTH); // Ensure both rising and falling edges are detected
+              this.setPowerState(powerPins, true);
+              this.platform.log.info(`${type} power resumed as door closed.`);
+            }
+          }, rpio.POLL_BOTH); // Ensure both rising and falling edges are detected
+        }
       } else {
         this.platform.log.warn(`No door pin configured for ${type}`);
       }
