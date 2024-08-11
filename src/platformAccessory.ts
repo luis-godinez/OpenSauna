@@ -576,40 +576,38 @@ export class OpenSaunaAccessory {
 
     doorSensors.forEach(({ type, pin, inverse, allowOnWhileOpen, powerPins }) => {
       if (pin !== undefined) {
-      // Set up polling only if not already set
-        if (!rpio.poll(pin)) {
-          rpio.poll(pin, () => {
-            const doorOpen = inverse ? rpio.read(pin) === 0 : rpio.read(pin) === 1;
-            this.platform.log.info(
-              `${type.charAt(0).toUpperCase() + type.slice(1)} Door ${
-                doorOpen ? 'Open' : 'Closed'
-              }`,
+      // Set up polling with a callback function
+        rpio.poll(pin, () => {
+          const doorOpen = inverse ? rpio.read(pin) === 0 : rpio.read(pin) === 1;
+          this.platform.log.info(
+            `${type.charAt(0).toUpperCase() + type.slice(1)} Door ${
+              doorOpen ? 'Open' : 'Closed'
+            }`,
+          );
+
+          const doorServiceName = `${
+            type.charAt(0).toUpperCase() + type.slice(1)
+          } Door`;
+          const doorService = this.accessory.getService(doorServiceName);
+
+          if (doorService) {
+            doorService.updateCharacteristic(
+              this.platform.Characteristic.ContactSensorState,
+              doorOpen
+                ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+                : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED,
             );
-
-            const doorServiceName = `${
-              type.charAt(0).toUpperCase() + type.slice(1)
-            } Door`;
-            const doorService = this.accessory.getService(doorServiceName);
-
-            if (doorService) {
-              doorService.updateCharacteristic(
-                this.platform.Characteristic.ContactSensorState,
-                doorOpen
-                  ? this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
-                  : this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
-              );
-            }
-            // Ensure the heater turns off if set to not operate with door open.
-            if (doorOpen && !allowOnWhileOpen && powerPins) {
-              this.setPowerState(powerPins, false);
-              this.platform.log.warn(`${type} power off due to door open.`);
-            } else if (!doorOpen && !allowOnWhileOpen && powerPins) {
-            // Ensure the heater is resumed only when it was initially turned off due to the door open state
-              this.setPowerState(powerPins, true);
-              this.platform.log.info(`${type} power resumed as door closed.`);
-            }
-          }, rpio.POLL_BOTH); // Ensure both rising and falling edges are detected
-        }
+          }
+          // Ensure the heater turns off if set to not operate with door open.
+          if (doorOpen && !allowOnWhileOpen && powerPins) {
+            this.setPowerState(powerPins, false);
+            this.platform.log.warn(`${type} power off due to door open.`);
+          } else if (!doorOpen && !allowOnWhileOpen && powerPins) {
+          // Ensure the heater is resumed only when it was initially turned off due to the door open state
+            this.setPowerState(powerPins, true);
+            this.platform.log.info(`${type} power resumed as door closed.`);
+          }
+        }, rpio.POLL_BOTH); // Ensure both rising and falling edges are detected
       } else {
         this.platform.log.warn(`No door pin configured for ${type}`);
       }
