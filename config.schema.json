@@ -6,231 +6,174 @@
     "type": "object",
     "properties": {
       "platform": {
-        "title": "Platform Name",
         "type": "string",
-        "enum": ["OpenSauna"],
+        "title": "Platform Name",
         "default": "OpenSauna",
-        "description": "Name of the platform, should be 'OpenSauna'."
+        "readOnly": true
       },
       "name": {
-        "title": "Name",
         "type": "string",
-        "description": "OpenSauna"
+        "title": "Sauna System Name",
+        "description": "The name for the sauna system, displayed in Homebridge.",
+        "required": true
       },
       "hasSauna": {
-        "title": "Has Sauna",
         "type": "boolean",
-        "description": "Indicates if the sauna is present."
+        "title": "Enable Sauna",
+        "description": "Indicates if the sauna functionality is available.",
+        "default": false
       },
       "hasSaunaSplitPhase": {
-        "title": "Has Sauna Split Phase",
         "type": "boolean",
-        "description": "Indicates if the sauna uses split phase power."
+        "title": "Sauna Split Phase",
+        "description": "False for 120V, True for 240V sauna configuration.",
+        "default": false
       },
       "hasSteam": {
-        "title": "Has Steam Room",
         "type": "boolean",
-        "description": "Indicates if the steam room is present."
+        "title": "Enable Steam",
+        "description": "Indicates if the steam functionality is available.",
+        "default": false
       },
       "hasSteamSplitPhase": {
-        "title": "Has Steam Room Split Phase",
         "type": "boolean",
-        "description": "Indicates if the steam room uses split phase power."
+        "title": "Steam Split Phase",
+        "description": "False for 120V, True for 240V steam configuration.",
+        "default": false
       },
       "hasLight": {
-        "title": "Has Light",
         "type": "boolean",
-        "description": "Indicates if a light control is available."
+        "title": "Enable Light Control",
+        "description": "Indicates if light control is available.",
+        "default": false
       },
       "hasFan": {
-        "title": "Has Fan",
         "type": "boolean",
-        "description": "Indicates if a fan control is available."
+        "title": "Enable Fan Control",
+        "description": "Indicates if fan control is available.",
+        "default": false
       },
       "inverseSaunaDoor": {
-        "title": "Inverse Sauna Door",
         "type": "boolean",
-        "description": "If true, door sensor logic is inverted for the sauna."
+        "title": "Inverse Sauna Door Logic",
+        "description": "True if sauna door sensor logic is inverted.",
+        "default": false
       },
       "inverseSteamDoor": {
-        "title": "Inverse Steam Door",
         "type": "boolean",
-        "description": "If true, door sensor logic is inverted for the steam room."
+        "title": "Inverse Steam Door Logic",
+        "description": "True if steam door sensor logic is inverted.",
+        "default": false
       },
       "temperatureUnitFahrenheit": {
-        "title": "Temperature Unit Fahrenheit",
         "type": "boolean",
-        "description": "If true, temperatures are in Fahrenheit; otherwise, Celsius."
+        "title": "Temperature Unit Fahrenheit",
+        "description": "True for Fahrenheit, False for Celsius.",
+        "default": false
       },
       "gpioPins": {
         "type": "object",
-        "title": "GPIO Configuration",
+        "title": "GPIO Pins Configuration",
         "properties": {
           "saunaPowerPins": {
-            "title": "Sauna Power Pins",
             "type": "array",
+            "title": "Sauna Power Pins",
+            "description": "Array of GPIO pins for sauna power control.",
             "items": {
-              "type": "integer"
+              "type": "number"
             },
-            "description": "GPIO pins for sauna power control."
+            "default": []
           },
           "steamPowerPins": {
-            "title": "Steam Power Pins",
             "type": "array",
+            "title": "Steam Power Pins",
+            "description": "Array of GPIO pins for steam power control.",
             "items": {
-              "type": "integer"
+              "type": "number"
             },
-            "description": "GPIO pins for steam room power control."
+            "default": []
           },
           "lightPin": {
-            "title": "Light Pin",
-            "type": "integer",
-            "description": "GPIO pin for light control (optional).",
-            "nullable": true
+            "type": "number",
+            "title": "Light Control Pin",
+            "description": "Optional GPIO pin for light control.",
+            "default": null
           },
           "fanPin": {
-            "title": "Fan Pin",
-            "type": "integer",
-            "description": "GPIO pin for fan control (optional).",
-            "nullable": true
+            "type": "number",
+            "title": "Fan Control Pin",
+            "description": "Optional GPIO pin for fan control.",
+            "default": null
           },
           "saunaDoorPin": {
-            "title": "Sauna Door Pin",
-            "type": "integer",
-            "description": "GPIO pin for sauna door sensor (optional).",
-            "nullable": true
+            "type": "number",
+            "title": "Sauna Door Sensor Pin",
+            "description": "GPIO pin for sauna door sensor.",
+            "required": true
           },
           "steamDoorPin": {
-            "title": "Steam Door Pin",
-            "type": "integer",
-            "description": "GPIO pin for steam door sensor (optional).",
-            "nullable": true
+            "type": "number",
+            "title": "Steam Door Sensor Pin",
+            "description": "GPIO pin for steam door sensor.",
+            "required": true
           }
         }
       },
       "auxSensors": {
         "type": "array",
         "title": "Auxiliary Sensors",
+        "description": "Array of auxiliary sensors for additional readings.",
         "items": {
           "type": "object",
           "properties": {
             "name": {
-              "title": "Sensor Name",
               "type": "string",
-              "description": "Name of the auxiliary sensor."
+              "title": "Sensor Name",
+              "description": "Name or label for the auxiliary sensor.",
+              "required": true
             },
             "channel": {
-              "title": "Channel",
-              "type": "integer",
-              "description": "ADC channel number associated with the sensor."
+              "type": "number",
+              "title": "ADC Channel",
+              "description": "ADC channel for the auxiliary sensor.",
+              "required": true
             },
-            "system": {
-              "title": "System Association",
+            "associatedSystem": {
               "type": "string",
-              "enum": ["sauna", "steam", "controller", null],
-              "description": "The sensor to system association, or null if not associated."
+              "title": "Associated System",
+              "description": "System this sensor is associated with.",
+              "enum": ["sauna", "steam"],
+              "default": null
             },
-            "control": {
-              "title": "Control Logic",
+            "impactControl": {
               "type": "boolean",
-              "description": "Whether the sensor affects control logic (e.g., turns off power if overheating)."
+              "title": "Impact Control",
+              "description": "Whether this sensor impacts system control.",
+              "default": false
             }
-          },
-          "required": ["name", "channel", "system", "control"]
-        }
+          }
+        },
+        "default": []
       },
       "targetTemperatures": {
         "type": "object",
         "title": "Target Temperatures",
+        "description": "Optional target temperatures for sauna and steam.",
         "properties": {
           "sauna": {
-            "title": "Sauna Temperature",
             "type": "number",
-            "description": "Target temperature for the sauna in degrees."
+            "title": "Sauna Target Temperature",
+            "description": "Optional target temperature for sauna.",
+            "default": null
           },
           "steam": {
-            "title": "Steam Temperature",
             "type": "number",
-            "description": "Target temperature for the steam room in degrees."
+            "title": "Steam Target Temperature",
+            "description": "Optional target temperature for steam.",
+            "default": null
           }
         }
-      },
-      "saunaOnWhileDoorOpen": {
-        "title": "Sauna On While Door Open",
-        "type": "boolean",
-        "description": "Allows the sauna to be on while the door is open."
-      },
-      "steamOnWhileDoorOpen": {
-        "title": "Steam On While Door Open",
-        "type": "boolean",
-        "description": "Allows the steam room to be on while the door is open."
-      },
-      "saunaTimeout": {
-        "title": "Sauna Timeout",
-        "type": "number",
-        "description": "Maximum runtime for the sauna in minutes before auto-shutdown."
-      },
-      "steamTimeout": {
-        "title": "Steam Timeout",
-        "type": "number",
-        "description": "Maximum runtime for the steam room in minutes before auto-shutdown."
-      },
-      "saunaMaxTemperature": {
-        "title": "Sauna Max Temperature",
-        "type": "number",
-        "description": "Maximum user-configurable temperature for the sauna in degrees."
-      },
-      "steamMaxTemperature": {
-        "title": "Steam Max Temperature",
-        "type": "number",
-        "description": "Maximum user-configurable temperature for the steam room in degrees."
-      },
-      "steamMaxHumidity": {
-        "title": "Steam Max Humidity",
-        "type": "number",
-        "description": "Maximum user-configurable humidity for the steam room in percent."
-      },
-      "saunaSafetyTemperature": {
-        "title": "Sauna Safety Temperature",
-        "type": "number",
-        "description": "Safety limit for sauna temperature in degrees (hard-coded)."
-      },
-      "steamSafetyTemperature": {
-        "title": "Steam Safety Temperature",
-        "type": "number",
-        "description": "Safety limit for steam room temperature in degrees (hard-coded)."
-      },
-      "controllerSafetyTemperature": {
-        "title": "Controller Safety Temperature",
-        "type": "number",
-        "description": "Safety limit for the controller board temperature in degrees (hard-coded)."
       }
-    },
-    "required": [
-      "platform",
-      "name",
-      "hasSauna",
-      "hasSaunaSplitPhase",
-      "hasSteam",
-      "hasSteamSplitPhase",
-      "hasLight",
-      "hasFan",
-      "inverseSaunaDoor",
-      "inverseSteamDoor",
-      "temperatureUnitFahrenheit",
-      "gpioPins",
-      "auxSensors",
-      "targetTemperatures",
-      "saunaOnWhileDoorOpen",
-      "steamOnWhileDoorOpen",
-      "saunaTimeout",
-      "steamTimeout",
-      "saunaMaxTemperature",
-      "steamMaxTemperature",
-      "steamMaxHumidity",
-      "saunaSafetyTemperature",
-      "steamSafetyTemperature",
-      "controllerSafetyTemperature"
-    ]
+    }
   }
 }
