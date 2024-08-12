@@ -35,7 +35,6 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     this.accessories.push(accessory);
   }
 
-  // Modify the discoverDevices method to add a single accessory
   discoverDevices() {
     if (!isOpenSaunaConfig(this.config)) {
       this.log.error(
@@ -52,40 +51,58 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     devices.saunaTimeout = devices.saunaTimeout ?? 60; // in minutes
     devices.steamTimeout = devices.steamTimeout ?? 60; // in minutes
     devices.saunaMaxTemperature =
-    devices.saunaMaxTemperature ?? (devices.temperatureUnitFahrenheit ? 212 : 100);
+      devices.saunaMaxTemperature ?? (devices.temperatureUnitFahrenheit ? 212 : 100);
     devices.steamMaxTemperature =
-    devices.steamMaxTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
+      devices.steamMaxTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
     devices.steamMaxHumidity = devices.steamMaxHumidity ?? 60; // in percent
     devices.saunaSafetyTemperature = devices.saunaSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 248 : 120);
     devices.steamSafetyTemperature = devices.steamSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
     devices.controllerSafetyTemperature = devices.controllerSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 194 : 90);
 
-    // Add a single accessory for all configured devices
-    this.addAccessory(devices);
+    // Conditionally add Sauna accessory
+    if (devices.hasSauna) {
+      this.addAccessory(devices, 'sauna');
+    }
+
+    // Conditionally add Steam accessory
+    if (devices.hasSteam) {
+      this.addAccessory(devices, 'steam');
+    }
+
+    // Add Light and Fan accessories if they exist
+    if (devices.hasLight) {
+      this.addAccessory(devices, 'light');
+    }
+
+    if (devices.hasFan) {
+      this.addAccessory(devices, 'fan');
+    }
   }
 
-  // Adjust addAccessory to handle a single accessory with all features
-  private addAccessory(devices: OpenSaunaConfig) {
-  // Generate a unique UUID for the combined accessory
-    const uuid = this.api.hap.uuid.generate(devices.name);
+  private addAccessory(
+    devices: OpenSaunaConfig,
+    type: 'sauna' | 'steam' | 'light' | 'fan',
+  ) {
+    // Generate a unique UUID for each accessory
+    const uuid = this.api.hap.uuid.generate(`${devices.name}-${type}`);
     const existingAccessory = this.accessories.find(
       (accessory) => accessory.UUID === uuid,
     );
 
     if (existingAccessory) {
-    // The accessory already exists, update it
+      // The accessory already exists, update it
       this.log.info(
         'Restoring existing accessory from cache:',
         existingAccessory.displayName,
       );
-      new OpenSaunaAccessory(this, existingAccessory, devices);
+      new OpenSaunaAccessory(this, existingAccessory, devices, type);
     } else {
-    // Create a new accessory
-      this.log.info('Adding new accessory:', devices.name);
+      // Create a new accessory
+      this.log.info('Adding new accessory:', devices.name, type);
       const accessory = new this.api.platformAccessory(devices.name, uuid);
 
       // Create the accessory handler
-      new OpenSaunaAccessory(this, accessory, devices);
+      new OpenSaunaAccessory(this, accessory, devices, type);
 
       // Register the accessory
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
