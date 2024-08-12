@@ -140,7 +140,7 @@ export class OpenSaunaAccessory {
   private setupAccessory() {
     this.initializeGpioPins();
 
-    // Setup switches
+    // Setup switches with default names
     this.saunaPowerSwitch =
       this.accessory.getService('Sauna Power') ||
       this.accessory.addService(
@@ -151,6 +151,9 @@ export class OpenSaunaAccessory {
     this.saunaPowerSwitch
       .getCharacteristic(this.platform.Characteristic.On)
       .onSet(this.handleSaunaPowerSet.bind(this));
+    this.saunaPowerSwitch
+      .getCharacteristic(this.platform.Characteristic.Name)
+      .setValue('Sauna');
 
     this.steamPowerSwitch =
       this.accessory.getService('Steam Power') ||
@@ -162,6 +165,9 @@ export class OpenSaunaAccessory {
     this.steamPowerSwitch
       .getCharacteristic(this.platform.Characteristic.On)
       .onSet(this.handleSteamPowerSet.bind(this));
+    this.steamPowerSwitch
+      .getCharacteristic(this.platform.Characteristic.Name)
+      .setValue('Steam');
 
     this.lightPowerSwitch =
       this.accessory.getService('Light Power') ||
@@ -173,6 +179,9 @@ export class OpenSaunaAccessory {
     this.lightPowerSwitch
       .getCharacteristic(this.platform.Characteristic.On)
       .onSet(this.handleLightPowerSet.bind(this));
+    this.lightPowerSwitch
+      .getCharacteristic(this.platform.Characteristic.Name)
+      .setValue('Light');
 
     this.fanPowerSwitch =
       this.accessory.getService('Fan Power') ||
@@ -184,6 +193,9 @@ export class OpenSaunaAccessory {
     this.fanPowerSwitch
       .getCharacteristic(this.platform.Characteristic.On)
       .onSet(this.handleFanPowerSet.bind(this));
+    this.fanPowerSwitch
+      .getCharacteristic(this.platform.Characteristic.Name)
+      .setValue('Fan');
 
     // Setup thermostats
     this.saunaThermostat =
@@ -196,6 +208,9 @@ export class OpenSaunaAccessory {
     this.saunaThermostat
       .getCharacteristic(this.platform.Characteristic.TargetTemperature)
       .onSet(this.handleSaunaTargetTemperatureSet.bind(this));
+    this.saunaThermostat
+      .getCharacteristic(this.platform.Characteristic.Name)
+      .setValue('Sauna');
 
     this.steamThermostat =
       this.accessory.getService('Steam Thermostat') ||
@@ -207,6 +222,9 @@ export class OpenSaunaAccessory {
     this.steamThermostat
       .getCharacteristic(this.platform.Characteristic.TargetTemperature)
       .onSet(this.handleSteamTargetTemperatureSet.bind(this));
+    this.steamThermostat
+      .getCharacteristic(this.platform.Characteristic.Name)
+      .setValue('Steam');
 
     // Setup temperature sensors
     this.saunaTemperatureSensor =
