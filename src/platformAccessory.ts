@@ -173,6 +173,54 @@ export class OpenSaunaAccessory {
   private setupAccessory() {
     this.initializeGpioPins();
 
+    // Setup sauna thermostat with custom max temperature
+    this.saunaThermostat =
+    this.accessory.getService('Sauna Thermostat') ||
+    this.accessory.addService(
+      this.platform.Service.Thermostat,
+      'Sauna Thermostat',
+      'sauna-thermostat',
+    );
+
+    this.saunaThermostat
+      .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+      .onSet(this.handleSaunaTargetTemperatureSet.bind(this))
+      .setProps({
+        minValue: 0,
+        maxValue: this.config.temperatureUnitFahrenheit
+          ? this.convertToFahrenheit(this.config.saunaMaxTemperature)
+          : this.config.saunaMaxTemperature,
+        minStep: 0.5,
+      });
+
+    this.saunaThermostat
+      .getCharacteristic(this.platform.Characteristic.Name)
+      .setValue('Sauna');
+
+    // Setup steam thermostat with custom max temperature
+    this.steamThermostat =
+    this.accessory.getService('Steam Thermostat') ||
+    this.accessory.addService(
+      this.platform.Service.Thermostat,
+      'Steam Thermostat',
+      'steam-thermostat',
+    );
+
+    this.steamThermostat
+      .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+      .onSet(this.handleSteamTargetTemperatureSet.bind(this))
+      .setProps({
+        minValue: 0,
+        maxValue: this.config.temperatureUnitFahrenheit
+          ? this.convertToFahrenheit(this.config.steamMaxTemperature)
+          : this.config.steamMaxTemperature,
+        minStep: 0.5,
+      });
+
+    this.steamThermostat
+      .getCharacteristic(this.platform.Characteristic.Name)
+      .setValue('Steam');
+
     // Setup switches with default names
     this.saunaPowerSwitch =
       this.accessory.getService('Sauna Power') ||
@@ -181,6 +229,7 @@ export class OpenSaunaAccessory {
         'Sauna Power',
         'sauna-power',
       );
+
     this.saunaPowerSwitch
       .getCharacteristic(this.platform.Characteristic.On)
       .onSet(this.handleSaunaPowerSet.bind(this));
