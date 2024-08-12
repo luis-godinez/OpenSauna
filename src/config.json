@@ -2,7 +2,7 @@
   "platforms": [
     {
       "platform": "OpenSauna",
-      "name": "My Sauna System",
+      "name": "OpenSauna",
       "hasSauna": true,
       "hasSaunaSplitPhase": true,
       "hasSteam": true,

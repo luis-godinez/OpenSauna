@@ -194,8 +194,7 @@ export class OpenSaunaAccessory {
       });
 
     this.saunaThermostat
-      .getCharacteristic(this.platform.Characteristic.Name)
-      .setValue('Sauna');
+      .setCharacteristic(this.platform.Characteristic.Name, 'Sauna');
 
     // Setup steam thermostat with custom max temperature
     this.steamThermostat =
@@ -218,8 +217,7 @@ export class OpenSaunaAccessory {
       });
 
     this.steamThermostat
-      .getCharacteristic(this.platform.Characteristic.Name)
-      .setValue('Steam');
+      .setCharacteristic(this.platform.Characteristic.Name, 'Steam');
 
     // Setup switches with default names
     this.saunaPowerSwitch =
