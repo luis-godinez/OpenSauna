@@ -37,7 +37,6 @@ export class OpenSaunaAccessory {
     private readonly platform: OpenSaunaPlatform,
     private readonly accessory: PlatformAccessory,
     private readonly config: OpenSaunaConfig,
-    private readonly accessoryType: 'sauna' | 'steam' | 'light' | 'fan',
   ) {
     // Set the accessory information
     this.accessory
@@ -50,15 +49,6 @@ export class OpenSaunaAccessory {
       .setCharacteristic(
         this.platform.Characteristic.SerialNumber,
         '58008',
-      );
-
-    // Set the accessory's name
-    this.accessory.displayName = `${config.name} ${accessoryType}`;
-    this.accessory
-      .getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(
-        this.platform.Characteristic.Name,
-        this.accessory.displayName,
       );
 
     // Initialize RPIO with desired options
