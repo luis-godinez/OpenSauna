@@ -1,8 +1,17 @@
+import fs from 'fs';
+import path from 'path';
 import { OpenSaunaAccessory } from '../platformAccessory';
 import { OpenSaunaPlatform } from '../platform';
 import { PlatformAccessory, API, Logger, PlatformConfig } from 'homebridge';
 import { OpenSaunaConfig } from '../settings';
-import { mockDigitalWrite, mockOn } from '../jest.setup';
+import { mockDigitalWrite, mockRead } from '../jest.setup';
+
+// Load configuration from config.json
+const configPath = path.resolve(__dirname, '../config.json');
+const configData = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+
+// Extract the first OpenSaunaConfig from the platforms array
+const saunaConfig: OpenSaunaConfig = configData.platforms[0];
 
 // Mock Homebridge API and services
 const mockTemperatureSensorService = {
@@ -56,7 +65,6 @@ const mockLogger: Logger = {
 describe('OpenSaunaAccessory Sauna Tests', () => {
   let platform: OpenSaunaPlatform;
   let accessory: PlatformAccessory;
-  let config: OpenSaunaConfig;
   let saunaAccessory: OpenSaunaAccessory;
 
   beforeEach(() => {
@@ -91,80 +99,31 @@ describe('OpenSaunaAccessory Sauna Tests', () => {
       })),
     } as unknown as PlatformAccessory;
 
-    config = {
-      platform: 'OpenSauna',
-      name: 'Test Sauna',
-      hasSauna: true,
-      hasSaunaSplitPhase: true,
-      hasSteam: true,
-      hasSteamSplitPhase: false,
-      hasLight: true,
-      hasFan: true,
-      inverseSaunaDoor: false,
-      inverseSteamDoor: true,
-      temperatureUnitFahrenheit: false,
-      gpioPins: {
-        saunaPowerPins: [16, 20],
-        steamPowerPins: [25, 24],
-        lightPin: 23,
-        fanPin: 18,
-        saunaDoorPin: 19,
-        steamDoorPin: 26,
-      },
-      auxSensors: [
-        {
-          name: 'PCB_NTC',
-          channel: 0,
-          system: 'controller',
-          control: false,
-        },
-        {
-          name: 'SAUNA_NTC',
-          channel: 1,
-          system: 'sauna',
-          control: true,
-        },
-        {
-          name: 'Outside',
-          channel: 2,
-          system: null,
-          control: false,
-        },
-      ],
-      targetTemperatures: {
-        sauna: 80,
-        steam: 40,
-      },
-      saunaOnWhileDoorOpen: false,
-      steamOnWhileDoorOpen: false,
-      saunaTimeout: 60,
-      steamTimeout: 60,
-      saunaMaxTemperature: 100,
-      steamMaxTemperature: 60,
-      steamMaxHumidity: 60,
-      saunaSafetyTemperature: 120,
-      steamSafetyTemperature: 60,
-      controllerSafetyTemperature: 90,
-    };
-
-    saunaAccessory = new OpenSaunaAccessory(platform, accessory, config, 'sauna');
+    saunaAccessory = new OpenSaunaAccessory(platform, accessory, saunaConfig, 'sauna');
 
     // Mocking methods if they do not exist
     (saunaAccessory as any).handleDoorStateChange = (doorType: string, doorOpen: boolean) => {
-      const pin = config.gpioPins.saunaDoorPin;
-      const level = doorOpen ? 1 : 0;
-      if (pin !== undefined) {
-        mockOn.mock.calls.forEach(([event, callback]: [string, Function]) => {
-          if (event === 'alert') {
-            callback(level); // Simulate alert trigger
+      const pin = saunaConfig.gpioPins.saunaDoorPin;
+      const expectedLevel = saunaConfig.inverseSaunaDoor ? (doorOpen ? 0 : 1) : (doorOpen ? 1 : 0); // Account for inverse logic
+
+      mockRead.mockReturnValueOnce(expectedLevel);
+
+      // Simulate state change based on door status
+      if (doorType === 'sauna') {
+        const currentLevel = mockRead(pin);
+        if (currentLevel === expectedLevel) {
+          if (doorOpen && !saunaConfig.saunaOnWhileDoorOpen) {
+            saunaAccessory['handleSaunaPowerSet'](false); // Turn off sauna if door opens and saunaOnWhileDoorOpen is false
+          } else if (!doorOpen && !saunaConfig.saunaOnWhileDoorOpen) {
+            saunaAccessory['handleSaunaPowerSet'](true); // Turn sauna back on if door closes
           }
-        });
+        }
       }
     };
 
     // Mock target temperature methods
     (saunaAccessory as any).setTargetTemperature = jest.fn();
-    (saunaAccessory as any).getCurrentTargetTemperature = jest.fn(() => config.targetTemperatures.sauna);
+    (saunaAccessory as any).getCurrentTargetTemperature = jest.fn(() => saunaConfig.targetTemperatures.sauna);
   });
 
   afterEach(() => {
@@ -175,7 +134,7 @@ describe('OpenSaunaAccessory Sauna Tests', () => {
 
   test('should keep sauna heater on when door opens if saunaOnWhileDoorOpen is true', () => {
     // Update configuration to ensure sauna stays on when the door is open
-    config.saunaOnWhileDoorOpen = true;
+    saunaConfig.saunaOnWhileDoorOpen = true;
 
     // Set initial state
     saunaAccessory['handleSaunaPowerSet'](true);
@@ -184,20 +143,20 @@ describe('OpenSaunaAccessory Sauna Tests', () => {
     (saunaAccessory as any).handleDoorStateChange('sauna', true);
 
     // Verify that the sauna heater remains on
-    config.gpioPins.saunaPowerPins.forEach((pin: number) => {
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Heater should stay on
     });
   });
 
-  test('should turn off sauna heater when door opens if saunaOnWhileDoorOpen is false', () => {
-    // Update configuration to ensure sauna turns off when the door is open
-    config.saunaOnWhileDoorOpen = false;
+  test('should turn off sauna heater when door opens if saunaOnWhileDoorOpen is false and inverseSaunaDoor is false', () => {
+    saunaConfig.saunaOnWhileDoorOpen = false; // Turn off when open
+    saunaConfig.inverseSaunaDoor = false; // Normally closed sensor
 
     // Set initial state of the sauna heater to on
     saunaAccessory['handleSaunaPowerSet'](true);
 
     // Verify that initial state has the sauna heater on
-    config.gpioPins.saunaPowerPins.forEach((pin: number) => {
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Heater should initially be on
     });
 
@@ -205,7 +164,7 @@ describe('OpenSaunaAccessory Sauna Tests', () => {
     (saunaAccessory as any).handleDoorStateChange('sauna', true);
 
     // Verify that all sauna power-related GPIO pins are turned off when the door opens
-    config.gpioPins.saunaPowerPins.forEach((pin: number) => {
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Heater should turn off
     });
 
@@ -213,7 +172,36 @@ describe('OpenSaunaAccessory Sauna Tests', () => {
     (saunaAccessory as any).handleDoorStateChange('sauna', false);
 
     // Verify that all sauna power-related GPIO pins resume operation when the door closes
-    config.gpioPins.saunaPowerPins.forEach((pin: number) => {
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
+      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Heater should turn back on
+    });
+  });
+
+  test('should turn off sauna heater when door opens if saunaOnWhileDoorOpen is false and inverseSaunaDoor is true', () => {
+    saunaConfig.saunaOnWhileDoorOpen = false; // Turn off when open
+    saunaConfig.inverseSaunaDoor = true; // Normally open sensor
+
+    // Set initial state of the sauna heater to on
+    saunaAccessory['handleSaunaPowerSet'](true);
+
+    // Verify that initial state has the sauna heater on
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
+      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Heater should initially be on
+    });
+
+    // Simulate door open
+    (saunaAccessory as any).handleDoorStateChange('sauna', true);
+
+    // Verify that all sauna power-related GPIO pins are turned off when the door opens
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
+      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Heater should turn off
+    });
+
+    // Simulate door close
+    (saunaAccessory as any).handleDoorStateChange('sauna', false);
+
+    // Verify that all sauna power-related GPIO pins resume operation when the door closes
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Heater should turn back on
     });
   });
@@ -225,10 +213,10 @@ describe('OpenSaunaAccessory Sauna Tests', () => {
     saunaAccessory['handleSaunaPowerSet'](true);
 
     // Fast-forward time to after timeout
-    jest.advanceTimersByTime(config.saunaTimeout * 1000);
+    jest.advanceTimersByTime(saunaConfig.saunaTimeout * 1000);
 
     // Verify that the sauna heater turns off
-    config.gpioPins.saunaPowerPins.forEach((pin: number) => {
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Heater should turn off
     });
 
@@ -240,7 +228,7 @@ describe('OpenSaunaAccessory Sauna Tests', () => {
     jest.useFakeTimers();
 
     // Mock the temperature reading to be above the max temperature
-    const highTemperature = config.saunaMaxTemperature + 5;
+    const highTemperature = saunaConfig.saunaMaxTemperature + 5;
     mockDigitalWrite.mockClear();
 
     // Calculate the ADC mock value based on your conversion logic
@@ -257,7 +245,7 @@ describe('OpenSaunaAccessory Sauna Tests', () => {
     saunaAccessory['handleSaunaPowerSet'](true);
 
     // Verify that the sauna heater was initially turned on
-    config.gpioPins.saunaPowerPins.forEach((pin: number) => {
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Heater should initially turn on
     });
 
@@ -265,10 +253,10 @@ describe('OpenSaunaAccessory Sauna Tests', () => {
     jest.advanceTimersByTime(5000);
 
     // Manually trigger the temperature control logic if needed
-    saunaAccessory['handleTemperatureControl'](config.auxSensors[1], highTemperature);
+    saunaAccessory['handleTemperatureControl'](saunaConfig.auxSensors[1], highTemperature);
 
     // Verify that the sauna heater turns off due to exceeding max temperature
-    config.gpioPins.saunaPowerPins.forEach((pin: number) => {
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Heater should turn off
     });
 

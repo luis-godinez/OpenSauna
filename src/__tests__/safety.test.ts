@@ -1,8 +1,17 @@
+import fs from 'fs';
+import path from 'path';
 import { OpenSaunaAccessory } from '../platformAccessory';
 import { OpenSaunaPlatform } from '../platform';
 import { PlatformAccessory, API, Logger, PlatformConfig } from 'homebridge';
-import { OpenSaunaConfig } from '../settings';
 import { mockDigitalWrite } from '../jest.setup';
+import { OpenSaunaConfig } from '../settings';
+
+// Load configuration from config.json
+const configPath = path.resolve(__dirname, '../config.json');
+const configData = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+
+// Extract the first OpenSaunaConfig from the platforms array
+const saunaConfig: OpenSaunaConfig = configData.platforms[0];
 
 // Mock Homebridge API and services
 const mockTemperatureSensorService = {
@@ -10,13 +19,16 @@ const mockTemperatureSensorService = {
   updateCharacteristic: jest.fn(),
 };
 
+const mockSwitchService = {
+  setCharacteristic: jest.fn(),
+  getCharacteristic: jest.fn().mockReturnThis(),
+  onSet: jest.fn(),
+  updateCharacteristic: jest.fn(),
+};
+
 const mockHap = {
   Service: {
-    Switch: jest.fn().mockImplementation(() => ({
-      setCharacteristic: jest.fn(),
-      getCharacteristic: jest.fn().mockReturnThis(),
-      onSet: jest.fn(),
-    })),
+    Switch: jest.fn().mockImplementation(() => mockSwitchService),
     TemperatureSensor: jest.fn().mockImplementation(() => mockTemperatureSensorService),
     Thermostat: jest.fn().mockImplementation(() => ({
       setCharacteristic: jest.fn(),
@@ -66,7 +78,6 @@ const mockLogger: Logger = {
 describe('OpenSaunaAccessory Safety Tests', () => {
   let platform: OpenSaunaPlatform;
   let accessory: PlatformAccessory;
-  let config: OpenSaunaConfig;
   let saunaAccessory: OpenSaunaAccessory;
 
   beforeEach(() => {
@@ -83,70 +94,12 @@ describe('OpenSaunaAccessory Safety Tests', () => {
         if (serviceName.includes('Temperature')) {
           return mockTemperatureSensorService;
         }
-        return {
-          setCharacteristic: jest.fn(),
-          getCharacteristic: jest.fn().mockReturnThis(),
-          onSet: jest.fn(),
-        };
+        return mockSwitchService; // Return the mocked Switch service
       }),
-      addService: jest.fn().mockImplementation(() => ({
-        setCharacteristic: jest.fn(),
-        getCharacteristic: jest.fn().mockReturnThis(),
-        onSet: jest.fn(),
-      })),
+      addService: jest.fn().mockImplementation(() => mockSwitchService),
     } as unknown as PlatformAccessory;
 
-    config = {
-      platform: 'OpenSauna',
-      name: 'Test Sauna',
-      hasSauna: true,
-      hasSaunaSplitPhase: false,
-      hasSteam: true,
-      hasSteamSplitPhase: false,
-      hasLight: true,
-      hasFan: true,
-      inverseSaunaDoor: false,
-      inverseSteamDoor: false,
-      temperatureUnitFahrenheit: false,
-      gpioPins: {
-        saunaPowerPins: [16, 20],
-        steamPowerPins: [25, 24],
-        lightPin: 23,
-        fanPin: 18,
-        saunaDoorPin: 19,
-        steamDoorPin: 26,
-      },
-      auxSensors: [
-        {
-          name: 'PCB_NTC',
-          channel: 0,
-          system: 'controller',
-          control: false,
-        },
-        {
-          name: 'SAUNA_NTC',
-          channel: 1,
-          system: 'sauna',
-          control: true,
-        },
-      ],
-      targetTemperatures: {
-        sauna: 80,
-        steam: 40,
-      },
-      saunaOnWhileDoorOpen: true,
-      steamOnWhileDoorOpen: true,
-      saunaTimeout: 60,
-      steamTimeout: 60,
-      saunaMaxTemperature: 100,
-      steamMaxTemperature: 60,
-      steamMaxHumidity: 60,
-      saunaSafetyTemperature: 120,
-      steamSafetyTemperature: 60,
-      controllerSafetyTemperature: 90,
-    };
-
-    saunaAccessory = new OpenSaunaAccessory(platform, accessory, config, 'sauna');
+    saunaAccessory = new OpenSaunaAccessory(platform, accessory, saunaConfig, 'sauna');
   });
 
   afterEach(() => {
@@ -157,24 +110,28 @@ describe('OpenSaunaAccessory Safety Tests', () => {
 
   test('controller overheat: turn off all relays and flash lights if PCB temperature exceeds safety limit', () => {
     // Simulate PCB temperature exceeding the safety limit
-    saunaAccessory['monitorPcbTemperatureSafety'](config.controllerSafetyTemperature + 10);
+    saunaAccessory['monitorPcbTemperatureSafety'](saunaConfig.controllerSafetyTemperature + 10);
 
     // Expect that all power-related GPIO pins are turned off
-    config.gpioPins.saunaPowerPins.forEach((pin) => {
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Turn off sauna power
     });
-    config.gpioPins.steamPowerPins.forEach((pin) => {
+    saunaConfig.gpioPins.steamPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Turn off steam power
     });
 
-    expect(mockDigitalWrite).toHaveBeenCalledWith(config.gpioPins.lightPin, 0); // Lights off
-    expect(mockDigitalWrite).toHaveBeenCalledWith(config.gpioPins.fanPin, 0); // Fan off
+    if (saunaConfig.gpioPins.lightPin !== undefined) {
+      expect(mockDigitalWrite).toHaveBeenCalledWith(saunaConfig.gpioPins.lightPin, 0); // Lights off
+    }
+    if (saunaConfig.gpioPins.fanPin !== undefined) {
+      expect(mockDigitalWrite).toHaveBeenCalledWith(saunaConfig.gpioPins.fanPin, 0); // Fan off
+    }
 
     // Check for flashing sequence
     const flashingSequence = 10 * 2; // 10 flashes (on + off)
     const expectedCalls =
-      config.gpioPins.saunaPowerPins.length +
-      config.gpioPins.steamPowerPins.length +
+      saunaConfig.gpioPins.saunaPowerPins.length +
+      saunaConfig.gpioPins.steamPowerPins.length +
       2 + // Turn off commands for sauna, steam, light, and fan
       flashingSequence;
     expect(mockDigitalWrite).toHaveBeenCalledTimes(expectedCalls); // Flashing lights + turn off commands
@@ -182,33 +139,43 @@ describe('OpenSaunaAccessory Safety Tests', () => {
 
   test('sauna overheat: turn off sauna if it exceeds max safety temperature and flash lights', () => {
     // Ensure light is initially on if it is configured
-    if (typeof config.gpioPins.lightPin === 'number') {
-      saunaAccessory['setPowerState']([config.gpioPins.lightPin], true);
+    if (typeof saunaConfig.gpioPins.lightPin === 'number') {
+      saunaAccessory['setPowerState']([saunaConfig.gpioPins.lightPin], true);
     }
 
     // Simulate exceeding the max temperature
-    saunaAccessory['handleTemperatureControl'](config.auxSensors[1], 130); // Exceeds max temperature
+    saunaAccessory['handleTemperatureControl'](saunaConfig.auxSensors[1], 130); // Exceeds max temperature
 
     // Expect that all sauna power-related GPIO pins are turned off
-    config.gpioPins.saunaPowerPins.forEach((pin) => {
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Turn off sauna power
     });
 
     // Flashing sequence for sauna
     const flashingSequence = 10 * 2; // 10 flashes (on + off)
-    const expectedOffCommands = config.gpioPins.saunaPowerPins.length; // Number of sauna pins
+    const expectedOffCommands = saunaConfig.gpioPins.saunaPowerPins.length; // Number of sauna pins
     const expectedCalls = expectedOffCommands + flashingSequence + 1; // +1 for initial light off
 
-    expect(mockDigitalWrite).toHaveBeenCalledWith(config.gpioPins.lightPin, 0); // Ensure lights are off after overheat
+    expect(mockDigitalWrite).toHaveBeenCalledWith(saunaConfig.gpioPins.lightPin, 0); // Ensure lights are off after overheat
     expect(mockDigitalWrite).toHaveBeenCalledTimes(expectedCalls);
   });
 
   test('no temperature: no power if no signal from any temperature sensor', () => {
     // Simulate no signal
-    saunaAccessory['handleTemperatureControl'](config.auxSensors[1], NaN);
+    saunaAccessory['handleTemperatureControl'](saunaConfig.auxSensors[1], NaN);
 
-    config.gpioPins.saunaPowerPins.forEach((pin) => {
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Ensure sauna power is off
     });
   });
+
+  test('invalid temperature: no power if invalid temperature due to disconnected NTC', () => {
+    // Simulate no signal
+    saunaAccessory['handleTemperatureControl'](saunaConfig.auxSensors[1], -50);
+
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
+      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Ensure sauna power is off
+    });
+  });
+
 });

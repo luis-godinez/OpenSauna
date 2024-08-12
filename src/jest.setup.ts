@@ -2,32 +2,35 @@
 
 // Mock for mcp-spi-adc
 jest.mock('mcp-spi-adc', () => ({
-  Mcp3008: {
-    open: jest.fn((channel, options, callback) => {
-      callback(null, {
-        read: jest.fn((callback) => {
-          // Return a mock value, adjust based on your test needs
-          callback(null, { value: 0.5 });
-        }),
-        close: jest.fn(),
-      });
-    }),
-  },
+  openMcp3008: jest.fn().mockImplementation((channel, options, callback) => {
+    callback(null); // No error, simulate successful opening
+    return {
+      read: (cb: (err: string | null, reading: { value: number }) => void) => {
+        cb(null, { value: 0.5 }); // Simulate a reading
+      },
+    };
+  }),
 }));
 
 
 const mockDigitalWrite = jest.fn();
-const mockOn = jest.fn();
+const mockOpen = jest.fn();
+const mockClose = jest.fn();
+const mockPoll = jest.fn();
+const mockRead = jest.fn();
+const mockInit = jest.fn();
 
-jest.mock('pigpio', () => {
-  return {
-    Gpio: jest.fn().mockImplementation((pin: number) => ({
-      digitalWrite: (state: number) => mockDigitalWrite(pin, state),
-      on: mockOn,
-    })),
-    gpioInitialise: jest.fn(),
-    gpioTerminate: jest.fn(),
-  };
-});
+jest.mock('rpio', () => ({
+  open: mockOpen,
+  write: mockDigitalWrite,
+  read: mockRead,
+  poll: mockPoll,
+  close: mockClose,
+  init: mockInit, // Mock the init method
+  INPUT: 0,
+  OUTPUT: 1,
+  HIGH: 1,
+  LOW: 0,
+}));
 
-export { mockDigitalWrite, mockOn };
+export { mockDigitalWrite, mockOpen, mockClose, mockPoll, mockRead, mockInit };
