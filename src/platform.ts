@@ -1,5 +1,3 @@
-// src/platform.ts
-
 import {
   API,
   DynamicPlatformPlugin,
@@ -105,9 +103,14 @@ function isOpenSaunaConfig(config: PlatformConfig): config is OpenSaunaConfig {
     config.platform === PLATFORM_NAME &&
     typeof config.name === 'string' &&
     typeof config.hasSauna === 'boolean' &&
+    typeof config.hasSaunaSplitPhase === 'boolean' && // New property check
     typeof config.hasSteam === 'boolean' &&
+    typeof config.hasSteamSplitPhase === 'boolean' && // New property check
     typeof config.hasLight === 'boolean' &&
     typeof config.hasFan === 'boolean' &&
+    typeof config.inverseSaunaDoor === 'boolean' && // New property check
+    typeof config.inverseSteamDoor === 'boolean' && // New property check
+    typeof config.temperatureUnitFahrenheit === 'boolean' && // New property check
     config.gpioPins !== undefined &&
     typeof config.gpioPins.saunaDoorPin === 'number' &&
     typeof config.gpioPins.steamDoorPin === 'number' &&

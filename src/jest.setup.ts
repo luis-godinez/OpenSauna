@@ -1,18 +1,6 @@
 // jest.setup.ts
 
-// Mock for mcp-spi-adc
-jest.mock('mcp-spi-adc', () => ({
-  openMcp3008: jest.fn().mockImplementation((channel, options, callback) => {
-    callback(null); // No error, simulate successful opening
-    return {
-      read: (cb: (err: string | null, reading: { value: number }) => void) => {
-        cb(null, { value: 0.5 }); // Simulate a reading
-      },
-    };
-  }),
-}));
-
-
+// Declare mock implementations
 const mockDigitalWrite = jest.fn();
 const mockOpen = jest.fn();
 const mockClose = jest.fn();
@@ -20,6 +8,10 @@ const mockPoll = jest.fn();
 const mockRead = jest.fn();
 const mockInit = jest.fn();
 
+// Export mocks for use in tests
+export { mockDigitalWrite, mockOpen, mockClose, mockPoll, mockRead, mockInit };
+
+// Mock rpio before it's used
 jest.mock('rpio', () => ({
   open: mockOpen,
   write: mockDigitalWrite,
@@ -33,4 +25,14 @@ jest.mock('rpio', () => ({
   LOW: 0,
 }));
 
-export { mockDigitalWrite, mockOpen, mockClose, mockPoll, mockRead, mockInit };
+// Mock for mcp-spi-adc
+jest.mock('mcp-spi-adc', () => ({
+  openMcp3008: jest.fn().mockImplementation((channel, options, callback) => {
+    callback(null); // No error, simulate successful opening
+    return {
+      read: (cb: (err: string | null, reading: { value: number }) => void) => {
+        cb(null, { value: 0.5 }); // Simulate a reading
+      },
+    };
+  }),
+}));

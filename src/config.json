@@ -1,8 +1,10 @@
 {
   "platforms": [
     {
+      "manufacturer": "Ungodly Design",
       "platform": "OpenSauna",
-      "name": "My Sauna System",
+      "name": "OpenSauna",
+      "serial": "1234567890",
       "hasSauna": true,
       "hasSaunaSplitPhase": true,
       "hasSteam": true,

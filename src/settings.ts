@@ -2,8 +2,10 @@ export const PLATFORM_NAME = 'OpenSauna';
 export const PLUGIN_NAME = 'homebridge-opensauna';
 
 export interface OpenSaunaConfig {
-  platform: string; // Name of the platform (e.g., "OpenSauna")
+  manufacturer: string; // Name of the manufacturer
+  platform: string; // Name of the platform
   name: string; // Custom name for the sauna system
+  serial: string; // Custom serial for the sauna system
   hasSauna: boolean; // Indicates if the sauna is present
   hasSaunaSplitPhase: boolean; // Indicates if the sauna uses split phase power
   hasSteam: boolean; // Indicates if the steam room is present

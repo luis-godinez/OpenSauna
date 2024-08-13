@@ -2,7 +2,12 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { OpenSaunaPlatform } from './platform.js';
 import rpio from 'rpio'; // Updated import to use rpio
-import { openMcp3008, McpInterface, McpReading, EightChannels } from 'mcp-spi-adc';
+import {
+  openMcp3008,
+  McpInterface,
+  McpReading,
+  EightChannels,
+} from 'mcp-spi-adc';
 import i2c from 'i2c-bus'; // Assume types declared in typings.d.ts
 import { OpenSaunaConfig, AuxSensorConfig } from './settings.js';
 
@@ -27,6 +32,23 @@ export class OpenSaunaAccessory {
     private readonly accessory: PlatformAccessory,
     private readonly config: OpenSaunaConfig,
   ) {
+    // Set the accessory information
+    this.accessory
+      .getService(this.platform.Service.AccessoryInformation)!
+      .setCharacteristic(
+        this.platform.Characteristic.Manufacturer,
+        `${this.config.manufacturer}`,
+      )
+      .setCharacteristic(
+        this.platform.Characteristic.Name,
+        `${this.config.name}`,
+      )
+      .setCharacteristic(this.platform.Characteristic.Model, 'OpenSauna')
+      .setCharacteristic(
+        this.platform.Characteristic.SerialNumber,
+        `${this.config.serial}`,
+      );
+
     // Initialize RPIO with desired options
     rpio.init({
       mapping: 'gpio', // Use GPIO pin numbering
@@ -89,15 +111,21 @@ export class OpenSaunaAccessory {
 
     for (const system in systemCount) {
       if (systemCount[system] > 1) {
-        throw new Error(`Only one NTC sensor is allowed for the ${system} system.`);
+        throw new Error(
+          `Only one NTC sensor is allowed for the ${system} system.`,
+        );
       }
     }
   }
 
   // Initialize GPIO pins during setup
   private initializeGpioPins() {
-    this.config.gpioPins.saunaPowerPins.forEach((pin) => rpio.open(pin, rpio.OUTPUT, rpio.LOW));
-    this.config.gpioPins.steamPowerPins.forEach((pin) => rpio.open(pin, rpio.OUTPUT, rpio.LOW));
+    this.config.gpioPins.saunaPowerPins.forEach((pin) =>
+      rpio.open(pin, rpio.OUTPUT, rpio.LOW),
+    );
+    this.config.gpioPins.steamPowerPins.forEach((pin) =>
+      rpio.open(pin, rpio.OUTPUT, rpio.LOW),
+    );
     if (this.config.gpioPins.lightPin !== undefined) {
       rpio.open(this.config.gpioPins.lightPin, rpio.OUTPUT, rpio.LOW);
     }
@@ -135,21 +163,45 @@ export class OpenSaunaAccessory {
 
     // Setup switches and thermostats based on config
     if (this.config.hasSauna) {
-      this.saunaPowerSwitch = this.addSwitchService('Sauna Power', 'sauna-power', this.handleSaunaPowerSet.bind(this));
-      this.addThermostatService('Sauna Thermostat', 'sauna-thermostat', this.handleSaunaTargetTemperatureSet.bind(this));
+      this.saunaPowerSwitch = this.addSwitchService(
+        'Sauna Power',
+        'sauna-power',
+        this.handleSaunaPowerSet.bind(this),
+      );
+      this.addThermostatService(
+        'Sauna Thermostat',
+        'sauna-thermostat',
+        this.handleSaunaTargetTemperatureSet.bind(this),
+      );
     }
 
     if (this.config.hasSteam) {
-      this.steamPowerSwitch = this.addSwitchService('Steam Power', 'steam-power', this.handleSteamPowerSet.bind(this));
-      this.addThermostatService('Steam Thermostat', 'steam-thermostat', this.handleSteamTargetTemperatureSet.bind(this));
+      this.steamPowerSwitch = this.addSwitchService(
+        'Steam Power',
+        'steam-power',
+        this.handleSteamPowerSet.bind(this),
+      );
+      this.addThermostatService(
+        'Steam Thermostat',
+        'steam-thermostat',
+        this.handleSteamTargetTemperatureSet.bind(this),
+      );
     }
 
     if (this.config.hasLight) {
-      this.lightPowerSwitch = this.addSwitchService('Light Power', 'light-power', this.handleLightPowerSet.bind(this));
+      this.lightPowerSwitch = this.addSwitchService(
+        'Light Power',
+        'light-power',
+        this.handleLightPowerSet.bind(this),
+      );
     }
 
     if (this.config.hasFan) {
-      this.fanPowerSwitch = this.addSwitchService('Fan Power', 'fan-power', this.handleFanPowerSet.bind(this));
+      this.fanPowerSwitch = this.addSwitchService(
+        'Fan Power',
+        'fan-power',
+        this.handleFanPowerSet.bind(this),
+      );
     }
 
     // Setup auxiliary temperature sensors
@@ -171,8 +223,14 @@ export class OpenSaunaAccessory {
 
     // Setup steam temperature and humidity sensors
     if (this.config.hasSteam) {
-      this.steamTemperatureSensor = this.addTemperatureSensorService('Steam Temperature', 'steam-temperature');
-      this.steamHumiditySensor = this.addHumiditySensorService('Steam Humidity', 'steam-humidity');
+      this.steamTemperatureSensor = this.addTemperatureSensorService(
+        'Steam Temperature',
+        'steam-temperature',
+      );
+      this.steamHumiditySensor = this.addHumiditySensorService(
+        'Steam Humidity',
+        'steam-humidity',
+      );
     }
 
     // Setup door sensors
@@ -191,35 +249,81 @@ export class OpenSaunaAccessory {
     process.on('exit', this.cleanupGpioPins.bind(this));
   }
 
-  private addSwitchService(name: string, subtype: string, onSetHandler: (value: CharacteristicValue) => void): Service {
-    const switchService = this.accessory.getService(name) ||
+  // Set the name characteristic for the sauna power switch
+  private addSwitchService(
+    name: string,
+    subtype: string,
+    onSetHandler: (value: CharacteristicValue) => void,
+  ): Service {
+    const switchService =
+      this.accessory.getService(subtype) ||
       this.accessory.addService(this.platform.Service.Switch, name, subtype);
-    switchService.getCharacteristic(this.platform.Characteristic.On).onSet(onSetHandler);
+    switchService
+      .getCharacteristic(this.platform.Characteristic.On)
+      .onSet(onSetHandler);
+    switchService.setCharacteristic(this.platform.Characteristic.Name, name); // Set the name
     return switchService;
   }
 
-  private addThermostatService(name: string, subtype: string, onSetHandler: (value: CharacteristicValue) => void): Service {
-    const thermostatService = this.accessory.getService(name) ||
-      this.accessory.addService(this.platform.Service.Thermostat, name, subtype);
-    thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature).onSet(onSetHandler);
+  // Set the name characteristic for the thermostat
+  private addThermostatService(
+    name: string,
+    subtype: string,
+    onSetHandler: (value: CharacteristicValue) => void,
+  ): Service {
+    const thermostatService =
+      this.accessory.getService(subtype) ||
+      this.accessory.addService(
+        this.platform.Service.Thermostat,
+        name,
+        subtype,
+      );
+    thermostatService
+      .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+      .onSet(onSetHandler);
+    thermostatService.setCharacteristic(
+      this.platform.Characteristic.Name,
+      name,
+    ); // Set the name
     return thermostatService;
   }
 
+  // Set the name characteristic for the temperature sensor
   private addTemperatureSensorService(name: string, subtype: string): Service {
-    const tempService = this.accessory.getService(name) ||
-      this.accessory.addService(this.platform.Service.TemperatureSensor, name, subtype);
-    return tempService; // Ensure the service is returned
+    const tempService =
+      this.accessory.getService(subtype) ||
+      this.accessory.addService(
+        this.platform.Service.TemperatureSensor,
+        name,
+        subtype,
+      );
+    tempService.setCharacteristic(this.platform.Characteristic.Name, name); // Set the name
+    return tempService;
   }
 
+  // Set the name characteristic for the humidity sensor
   private addHumiditySensorService(name: string, subtype: string): Service {
-    const humidityService = this.accessory.getService(name) ||
-      this.accessory.addService(this.platform.Service.HumiditySensor, name, subtype);
-    return humidityService; // Ensure the service is returned
+    const humidityService =
+      this.accessory.getService(subtype) ||
+      this.accessory.addService(
+        this.platform.Service.HumiditySensor,
+        name,
+        subtype,
+      );
+    humidityService.setCharacteristic(this.platform.Characteristic.Name, name); // Set the name
+    return humidityService;
   }
 
+  // Set the name characteristic for the contact sensor
   private addContactSensorService(name: string, subtype: string): Service {
-    const contactService = this.accessory.getService(name) ||
-      this.accessory.addService(this.platform.Service.ContactSensor, name, subtype);
+    const contactService =
+      this.accessory.getService(subtype) ||
+      this.accessory.addService(
+        this.platform.Service.ContactSensor,
+        name,
+        subtype,
+      );
+    contactService.setCharacteristic(this.platform.Characteristic.Name, name); // Set the name
     return contactService;
   }
 
@@ -228,13 +332,20 @@ export class OpenSaunaAccessory {
     this.setPowerState(this.config.gpioPins.saunaPowerPins, value);
 
     if (value) {
-      this.startSystem('sauna', this.config.gpioPins.saunaPowerPins, this.config.saunaTimeout);
+      this.startSystem(
+        'sauna',
+        this.config.gpioPins.saunaPowerPins,
+        this.config.saunaTimeout,
+      );
     } else {
       this.stopSystem('sauna', this.config.gpioPins.saunaPowerPins);
     }
 
     // Update the characteristic value to reflect the current state
-    this.saunaPowerSwitch?.updateCharacteristic(this.platform.Characteristic.On, value);
+    this.saunaPowerSwitch?.updateCharacteristic(
+      this.platform.Characteristic.On,
+      value,
+    );
   }
 
   private handleSteamPowerSet(value: CharacteristicValue) {
@@ -242,13 +353,20 @@ export class OpenSaunaAccessory {
     this.setPowerState(this.config.gpioPins.steamPowerPins, value);
 
     if (value) {
-      this.startSystem('steam', this.config.gpioPins.steamPowerPins, this.config.steamTimeout);
+      this.startSystem(
+        'steam',
+        this.config.gpioPins.steamPowerPins,
+        this.config.steamTimeout,
+      );
     } else {
       this.stopSystem('steam', this.config.gpioPins.steamPowerPins);
     }
 
     // Update the characteristic value to reflect the current state
-    this.steamPowerSwitch?.updateCharacteristic(this.platform.Characteristic.On, value);
+    this.steamPowerSwitch?.updateCharacteristic(
+      this.platform.Characteristic.On,
+      value,
+    );
   }
 
   private handleLightPowerSet(value: CharacteristicValue) {
@@ -258,7 +376,10 @@ export class OpenSaunaAccessory {
     }
 
     // Update the characteristic value to reflect the current state
-    this.lightPowerSwitch?.updateCharacteristic(this.platform.Characteristic.On, value);
+    this.lightPowerSwitch?.updateCharacteristic(
+      this.platform.Characteristic.On,
+      value,
+    );
   }
 
   private handleFanPowerSet(value: CharacteristicValue) {
@@ -268,7 +389,10 @@ export class OpenSaunaAccessory {
     }
 
     // Update the characteristic value to reflect the current state
-    this.fanPowerSwitch?.updateCharacteristic(this.platform.Characteristic.On, value);
+    this.fanPowerSwitch?.updateCharacteristic(
+      this.platform.Characteristic.On,
+      value,
+    );
   }
 
   // Handle target temperature set events for sauna
@@ -284,7 +408,11 @@ export class OpenSaunaAccessory {
   }
 
   // Start a system with timeout logic
-  private startSystem(system: 'sauna' | 'steam', powerPins: number[], timeout: number) {
+  private startSystem(
+    system: 'sauna' | 'steam',
+    powerPins: number[],
+    timeout: number,
+  ) {
     this.platform.log.info(`Starting ${system} with timeout...`);
     this.setPowerState(powerPins, true);
 
@@ -324,66 +452,86 @@ export class OpenSaunaAccessory {
       const adcChannel = sensor.channel as EightChannels;
 
       // Open ADC channel for each sensor
-      this.adc = openMcp3008(adcChannel, { speedHz: 1350000 }, (err: string) => {
-        if (err) {
-          this.platform.log.error(`Failed to open ADC channel ${adcChannel} for sensor "${sensor.name}": ${err}`);
-          return;
-        }
-
-        // Set up a regular interval to read from the ADC channel
-        const interval = setInterval(() => {
-          this.adc.read((err: string | null, reading: McpReading) => {
-            if (err) {
-              this.platform.log.error(`Failed to read temperature for sensor "${sensor.name}": ${err}`);
-              return;
-            }
-
-            // Convert the ADC reading to a temperature value
-            const temperatureCelsius = (reading.value * 3.3 - 0.5) * 100;
-            const displayTemperature = this.config.temperatureUnitFahrenheit
-              ? this.convertToFahrenheit(temperatureCelsius)
-              : temperatureCelsius;
-
-            // Check for invalid readings (e.g., sensor disconnected)
-            const isInvalidReading = temperatureCelsius < -20 || temperatureCelsius > 150;
-            if (isInvalidReading) {
-              this.platform.log.warn(
-                `${sensor.name} Invalid Temperature: ${displayTemperature.toFixed(2)} °${this.config.temperatureUnitFahrenheit ? 'F' : 'C'}`,
-              );
-              // Reflect the invalid state in the HomeKit UI or log
-              this.reflectInvalidReadingState(sensor);
-              return;
-            }
-
-            // Update the HomeKit characteristic with the current temperature
-            const auxSensorService = this.auxTemperatureSensors.get(sensor.name);
-            if (auxSensorService) {
-              auxSensorService.updateCharacteristic(
-                this.platform.Characteristic.CurrentTemperature,
-                displayTemperature,
-              );
-            }
-
-            this.platform.log.info(
-              `${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °${this.config.temperatureUnitFahrenheit ? 'F' : 'C'}`,
+      this.adc = openMcp3008(
+        adcChannel,
+        { speedHz: 1350000 },
+        (err: string) => {
+          if (err) {
+            this.platform.log.error(
+              `Failed to open ADC channel ${adcChannel} for sensor "${sensor.name}": ${err}`,
             );
+            return;
+          }
 
-            // Perform actions based on the temperature reading
-            this.handleTemperatureControl(sensor, temperatureCelsius);
+          // Set up a regular interval to read from the ADC channel
+          const interval = setInterval(() => {
+            this.adc.read((err: string | null, reading: McpReading) => {
+              if (err) {
+                this.platform.log.error(
+                  `Failed to read temperature for sensor "${sensor.name}": ${err}`,
+                );
+                return;
+              }
 
-            // Perform additional safety checks for PCB temperature
-            if (sensor.name === 'PCB_NTC') {
-              this.monitorPcbTemperatureSafety(temperatureCelsius);
-            }
-          });
-        }, 5000);
+              // Convert the ADC reading to a temperature value
+              const temperatureCelsius = (reading.value * 3.3 - 0.5) * 100;
+              const displayTemperature = this.config.temperatureUnitFahrenheit
+                ? this.convertToFahrenheit(temperatureCelsius)
+                : temperatureCelsius;
 
-        this.temperatureIntervals.push(interval);
-      });
+              // Check for invalid readings (e.g., sensor disconnected)
+              const isInvalidReading =
+                temperatureCelsius < -20 || temperatureCelsius > 150;
+              if (isInvalidReading) {
+                this.platform.log.warn(
+                  `${
+                    sensor.name
+                  } Invalid Temperature: ${displayTemperature.toFixed(2)} °${
+                    this.config.temperatureUnitFahrenheit ? 'F' : 'C'
+                  }`,
+                );
+                // Reflect the invalid state in the HomeKit UI or log
+                this.reflectInvalidReadingState(sensor);
+                return;
+              }
+
+              // Update the HomeKit characteristic with the current temperature
+              const auxSensorService = this.auxTemperatureSensors.get(
+                sensor.name,
+              );
+              if (auxSensorService) {
+                auxSensorService.updateCharacteristic(
+                  this.platform.Characteristic.CurrentTemperature,
+                  displayTemperature,
+                );
+              }
+
+              this.platform.log.info(
+                `${sensor.name} Temperature: ${displayTemperature.toFixed(
+                  2,
+                )} °${this.config.temperatureUnitFahrenheit ? 'F' : 'C'}`,
+              );
+
+              // Perform actions based on the temperature reading
+              this.handleTemperatureControl(sensor, temperatureCelsius);
+
+              // Perform additional safety checks for PCB temperature
+              if (sensor.name === 'PCB_NTC') {
+                this.monitorPcbTemperatureSafety(temperatureCelsius);
+              }
+            });
+          }, 5000);
+
+          this.temperatureIntervals.push(interval);
+        },
+      );
     });
   }
 
-  private handleTemperatureControl(sensor: AuxSensorConfig, temperatureCelsius: number) {
+  private handleTemperatureControl(
+    sensor: AuxSensorConfig,
+    temperatureCelsius: number,
+  ) {
     let powerPins: number[] | undefined;
     let maxTemperature: number | undefined;
     let safetyTemperature: number | undefined;
@@ -405,30 +553,54 @@ export class OpenSaunaAccessory {
     }
 
     // Check for invalid readings or NaN values
-    const isInvalidReading = isNaN(temperatureCelsius) || temperatureCelsius < -20 || temperatureCelsius > 150;
+    const isInvalidReading =
+      isNaN(temperatureCelsius) ||
+      temperatureCelsius < -20 ||
+      temperatureCelsius > 150;
 
     if (powerPins) {
       if (isInvalidReading) {
         // Ensure power remains off for invalid readings
         this.setPowerState(powerPins, false);
-        switchService?.updateCharacteristic(this.platform.Characteristic.On, false); // Update UI state
-        this.platform.log.error(`${sensor.name} has an invalid signal. Power off due to invalid reading.`);
+        switchService?.updateCharacteristic(
+          this.platform.Characteristic.On,
+          false,
+        ); // Update UI state
+        this.platform.log.error(
+          `${sensor.name} has an invalid signal. Power off due to invalid reading.`,
+        );
         return; // Exit early since the reading is invalid
       }
 
       // Check safety temperature for critical shutdown
-      if (safetyTemperature !== undefined && temperatureCelsius > safetyTemperature) {
+      if (
+        safetyTemperature !== undefined &&
+        temperatureCelsius > safetyTemperature
+      ) {
         this.setPowerState(powerPins, false);
-        switchService?.updateCharacteristic(this.platform.Characteristic.On, false); // Update UI state
+        switchService?.updateCharacteristic(
+          this.platform.Characteristic.On,
+          false,
+        ); // Update UI state
         this.flashLights(10); // Flash warning lights
-        this.platform.log.error(`${sensor.name} exceeded safety temperature! Immediate power off and flashing lights.`);
+        this.platform.log.error(
+          `${sensor.name} exceeded safety temperature! Immediate power off and flashing lights.`,
+        );
       }
       // Check normal operational max temperature
-      else if (maxTemperature !== undefined && temperatureCelsius > maxTemperature) {
+      else if (
+        maxTemperature !== undefined &&
+        temperatureCelsius > maxTemperature
+      ) {
         this.setPowerState(powerPins, false);
-        switchService?.updateCharacteristic(this.platform.Characteristic.On, false); // Update UI state
+        switchService?.updateCharacteristic(
+          this.platform.Characteristic.On,
+          false,
+        ); // Update UI state
         this.flashLights(10); // Flash warning lights
-        this.platform.log.warn(`${sensor.name} exceeded max temperature. Power off and flashing lights.`);
+        this.platform.log.warn(
+          `${sensor.name} exceeded max temperature. Power off and flashing lights.`,
+        );
       }
     }
   }
@@ -452,7 +624,9 @@ export class OpenSaunaAccessory {
     if (temperatureCelsius > safetyTemperature) {
       this.disableAllRelays();
       this.flashLights(10); // Flash warning lights
-      this.platform.log.error('Controller PCB temperature exceeded safety limit! All relays disabled and flashing lights.');
+      this.platform.log.error(
+        'Controller PCB temperature exceeded safety limit! All relays disabled and flashing lights.',
+      );
     }
   }
 
@@ -518,8 +692,13 @@ export class OpenSaunaAccessory {
 
         if (humidity > this.config.steamMaxHumidity) {
           this.setPowerState(this.config.gpioPins.steamPowerPins, false);
-          this.steamPowerSwitch?.updateCharacteristic(this.platform.Characteristic.On, false); // Update UI state
-          this.platform.log.warn('Steam humidity exceeded max humidity. Steam power off.');
+          this.steamPowerSwitch?.updateCharacteristic(
+            this.platform.Characteristic.On,
+            false,
+          ); // Update UI state
+          this.platform.log.warn(
+            'Steam humidity exceeded max humidity. Steam power off.',
+          );
         }
       } catch (err) {
         this.platform.log.error(
@@ -561,49 +740,61 @@ export class OpenSaunaAccessory {
       },
     ];
 
-    doorSensors.forEach(({ type, pin, inverse, allowOnWhileOpen, powerPins }) => {
-      if (pin !== undefined) {
-        try {
-          rpio.poll(pin, null); // Unregister existing poll to avoid duplicate listeners
-        } catch (error) {
-          this.platform.log.error(`Error unregistering poll for pin ${pin}: ${error}`);
-        }
-
-        rpio.poll(pin, () => {
-          const doorOpen = inverse ? rpio.read(pin) === 0 : rpio.read(pin) === 1;
-          this.platform.log.info(
-            `${type.charAt(0).toUpperCase() + type.slice(1)} Door ${
-              doorOpen ? 'Open' : 'Closed'
-            }`,
-          );
-
-          const doorServiceName = `${
-            type.charAt(0).toUpperCase() + type.slice(1)
-          } Door`;
-          const doorService = this.accessory.getService(doorServiceName);
-
-          if (doorService) {
-            doorService.updateCharacteristic(
-              this.platform.Characteristic.ContactSensorState,
-              doorOpen
-                ? this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
-                : this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
+    doorSensors.forEach(
+      ({ type, pin, inverse, allowOnWhileOpen, powerPins }) => {
+        if (pin !== undefined) {
+          try {
+            rpio.poll(pin, null); // Unregister existing poll to avoid duplicate listeners
+          } catch (error) {
+            this.platform.log.error(
+              `Error unregistering poll for pin ${pin}: ${error}`,
             );
           }
-          // Ensure the heater turns off if set to not operate with door open.
-          if (doorOpen && !allowOnWhileOpen && powerPins) {
-            this.setPowerState(powerPins, false);
-            this.platform.log.warn(`${type} power off due to door open.`);
-          } else if (!doorOpen && !allowOnWhileOpen && powerPins) {
-            // Ensure the heater is resumed only when it was initially turned off due to the door open state
-            this.setPowerState(powerPins, true);
-            this.platform.log.info(`${type} power resumed as door closed.`);
-          }
-        }, rpio.POLL_BOTH); // Ensure both rising and falling edges are detected
-      } else {
-        this.platform.log.warn(`No door pin configured for ${type}`);
-      }
-    });
+
+          rpio.poll(
+            pin,
+            () => {
+              const doorOpen = inverse
+                ? rpio.read(pin) === 0
+                : rpio.read(pin) === 1;
+              this.platform.log.info(
+                `${type.charAt(0).toUpperCase() + type.slice(1)} Door ${
+                  doorOpen ? 'Open' : 'Closed'
+                }`,
+              );
+
+              const doorServiceName = `${
+                type.charAt(0).toUpperCase() + type.slice(1)
+              } Door`;
+              const doorService = this.accessory.getService(doorServiceName);
+
+              if (doorService) {
+                doorService.updateCharacteristic(
+                  this.platform.Characteristic.ContactSensorState,
+                  doorOpen
+                    ? this.platform.Characteristic.ContactSensorState
+                      .CONTACT_DETECTED
+                    : this.platform.Characteristic.ContactSensorState
+                      .CONTACT_NOT_DETECTED,
+                );
+              }
+              // Ensure the heater turns off if set to not operate with door open.
+              if (doorOpen && !allowOnWhileOpen && powerPins) {
+                this.setPowerState(powerPins, false);
+                this.platform.log.warn(`${type} power off due to door open.`);
+              } else if (!doorOpen && !allowOnWhileOpen && powerPins) {
+                // Ensure the heater is resumed only when it was initially turned off due to the door open state
+                this.setPowerState(powerPins, true);
+                this.platform.log.info(`${type} power resumed as door closed.`);
+              }
+            },
+            rpio.POLL_BOTH,
+          ); // Ensure both rising and falling edges are detected
+        } else {
+          this.platform.log.warn(`No door pin configured for ${type}`);
+        }
+      },
+    );
   }
 
   // Utility function to convert Celsius to Fahrenheit
