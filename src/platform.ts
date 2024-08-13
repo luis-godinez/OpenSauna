@@ -66,17 +66,22 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
   private addAccessory(devices: OpenSaunaConfig) {
     // Generate a unique UUID for the combined accessory
     const uuid = this.api.hap.uuid.generate(devices.name);
+
+    // Find existing accessory by UUID
     const existingAccessory = this.accessories.find(
       (accessory) => accessory.UUID === uuid,
     );
 
     if (existingAccessory) {
       // The accessory already exists, update it
-      this.log.info(
-        'Restoring existing accessory from cache:',
-        existingAccessory.displayName,
-      );
+      this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
+
+      // Update the existing accessory's information and services
       new OpenSaunaAccessory(this, existingAccessory, devices);
+
+      // Ensure the accessory is up-to-date
+      this.api.updatePlatformAccessories([existingAccessory]);
+
     } else {
       // Create a new accessory
       this.log.info('Adding new accessory:', devices.name);
@@ -85,10 +90,10 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
       // Create the accessory handler
       new OpenSaunaAccessory(this, accessory, devices);
 
-      // Register the accessory
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
-        accessory,
-      ]);
+      // Register the new accessory
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+
+      // Add to the accessory cache
       this.accessories.push(accessory);
     }
   }
