@@ -7,19 +7,11 @@ import i2c from 'i2c-bus'; // Assume types declared in typings.d.ts
 import { OpenSaunaConfig, AuxSensorConfig } from './settings.js';
 
 export class OpenSaunaAccessory {
-  private saunaPowerSwitch?: Service;
-  private steamPowerSwitch?: Service;
-  private lightPowerSwitch?: Service;
-  private fanPowerSwitch?: Service;
-  private saunaThermostat?: Service;
-  private steamThermostat?: Service;
-  private saunaTemperatureSensor?: Service;
-  private pcbTemperatureSensor?: Service;
-  private steamTemperatureSensor?: Service;
-  private steamHumiditySensor?: Service;
-  private saunaDoorSensor?: Service;
-  private steamDoorSensor?: Service;
-  private auxTemperatureSensors: Map<string, Service> = new Map();
+  private services: Service[] = [];
+  private auxTemperatureSensors: Map<string, Service> = new Map(); // Define auxTemperatureSensors
+  private steamHumiditySensor?: Service; // Define steamHumiditySensor
+  private steamTemperatureSensor?: Service; // Define steamTemperatureSensor
+  private steamPowerSwitch?: Service; // Define steamPowerSwitch
 
   private adc!: McpInterface; // Define adc as McpInterface
   private i2cBus!: i2c.PromisifiedBus; // Define i2cBus
@@ -139,104 +131,24 @@ export class OpenSaunaAccessory {
   private setupAccessory() {
     this.initializeGpioPins();
 
-    // Setup switches
+    // Setup switches and thermostats based on config
     if (this.config.hasSauna) {
-      this.saunaPowerSwitch =
-        this.accessory.getService('Sauna Power') ||
-        this.accessory.addService(
-          this.platform.Service.Switch,
-          'Sauna Power',
-          'sauna-power',
-        );
-      this.saunaPowerSwitch
-        .getCharacteristic(this.platform.Characteristic.On)
-        .onSet(this.handleSaunaPowerSet.bind(this));
+      this.addSwitchService('Sauna Power', 'sauna-power', this.handleSaunaPowerSet.bind(this));
+      this.addThermostatService('Sauna Thermostat', 'sauna-thermostat', this.handleSaunaTargetTemperatureSet.bind(this));
     }
 
     if (this.config.hasSteam) {
-      this.steamPowerSwitch =
-        this.accessory.getService('Steam Power') ||
-        this.accessory.addService(
-          this.platform.Service.Switch,
-          'Steam Power',
-          'steam-power',
-        );
-      this.steamPowerSwitch
-        .getCharacteristic(this.platform.Characteristic.On)
-        .onSet(this.handleSteamPowerSet.bind(this));
+      this.addSwitchService('Steam Power', 'steam-power', this.handleSteamPowerSet.bind(this));
+      this.addThermostatService('Steam Thermostat', 'steam-thermostat', this.handleSteamTargetTemperatureSet.bind(this));
     }
 
     if (this.config.hasLight) {
-      this.lightPowerSwitch =
-        this.accessory.getService('Light Power') ||
-        this.accessory.addService(
-          this.platform.Service.Switch,
-          'Light Power',
-          'light-power',
-        );
-      this.lightPowerSwitch
-        .getCharacteristic(this.platform.Characteristic.On)
-        .onSet(this.handleLightPowerSet.bind(this));
+      this.addSwitchService('Light Power', 'light-power', this.handleLightPowerSet.bind(this));
     }
 
     if (this.config.hasFan) {
-      this.fanPowerSwitch =
-        this.accessory.getService('Fan Power') ||
-        this.accessory.addService(
-          this.platform.Service.Switch,
-          'Fan Power',
-          'fan-power',
-        );
-      this.fanPowerSwitch
-        .getCharacteristic(this.platform.Characteristic.On)
-        .onSet(this.handleFanPowerSet.bind(this));
+      this.addSwitchService('Fan Power', 'fan-power', this.handleFanPowerSet.bind(this));
     }
-
-    // Setup thermostats
-    if (this.config.hasSauna) {
-      this.saunaThermostat =
-        this.accessory.getService('Sauna Thermostat') ||
-        this.accessory.addService(
-          this.platform.Service.Thermostat,
-          'Sauna Thermostat',
-          'sauna-thermostat',
-        );
-      this.saunaThermostat
-        .getCharacteristic(this.platform.Characteristic.TargetTemperature)
-        .onSet(this.handleSaunaTargetTemperatureSet.bind(this));
-    }
-
-    if (this.config.hasSteam) {
-      this.steamThermostat =
-        this.accessory.getService('Steam Thermostat') ||
-        this.accessory.addService(
-          this.platform.Service.Thermostat,
-          'Steam Thermostat',
-          'steam-thermostat',
-        );
-      this.steamThermostat
-        .getCharacteristic(this.platform.Characteristic.TargetTemperature)
-        .onSet(this.handleSteamTargetTemperatureSet.bind(this));
-    }
-
-    // Setup temperature sensors
-    if (this.config.hasSauna) {
-      this.saunaTemperatureSensor =
-        this.accessory.getService('Sauna Temperature') ||
-        this.accessory.addService(
-          this.platform.Service.TemperatureSensor,
-          'Sauna Temperature',
-          'sauna-temperature',
-        );
-    }
-
-    this.pcbTemperatureSensor =
-      this.accessory.getService('PCB Temperature') ||
-      this.accessory.addService(
-        this.platform.Service.TemperatureSensor,
-        'PCB Temperature',
-        'pcb-temperature',
-      );
 
     // Setup auxiliary temperature sensors
     this.config.auxSensors.forEach((sensor) => {
@@ -257,42 +169,17 @@ export class OpenSaunaAccessory {
 
     // Setup steam temperature and humidity sensors
     if (this.config.hasSteam) {
-      this.steamTemperatureSensor =
-        this.accessory.getService('Steam Temperature') ||
-        this.accessory.addService(
-          this.platform.Service.TemperatureSensor,
-          'Steam Temperature',
-          'steam-temperature',
-        );
-
-      this.steamHumiditySensor =
-        this.accessory.getService('Steam Humidity') ||
-        this.accessory.addService(
-          this.platform.Service.HumiditySensor,
-          'Steam Humidity',
-          'steam-humidity',
-        );
+      this.steamTemperatureSensor = this.addTemperatureSensorService('Steam Temperature', 'steam-temperature');
+      this.steamHumiditySensor = this.addHumiditySensorService('Steam Humidity', 'steam-humidity');
     }
 
     // Setup door sensors
     if (this.config.hasSauna) {
-      this.saunaDoorSensor =
-        this.accessory.getService('Sauna Door') ||
-        this.accessory.addService(
-          this.platform.Service.ContactSensor,
-          'Sauna Door',
-          'sauna-door',
-        );
+      this.addContactSensorService('Sauna Door', 'sauna-door');
     }
 
     if (this.config.hasSteam) {
-      this.steamDoorSensor =
-        this.accessory.getService('Steam Door') ||
-        this.accessory.addService(
-          this.platform.Service.ContactSensor,
-          'Steam Door',
-          'steam-door',
-        );
+      this.addContactSensorService('Steam Door', 'steam-door');
     }
 
     // Monitor temperatures, humidity, and door states
@@ -300,6 +187,40 @@ export class OpenSaunaAccessory {
     this.monitorHumidity();
     this.monitorDoors();
     process.on('exit', this.cleanupGpioPins.bind(this));
+  }
+
+  private addSwitchService(name: string, subtype: string, onSetHandler: (value: CharacteristicValue) => void) {
+    const switchService = this.accessory.getService(name) ||
+      this.accessory.addService(this.platform.Service.Switch, name, subtype);
+    switchService.getCharacteristic(this.platform.Characteristic.On).onSet(onSetHandler);
+    this.services.push(switchService);
+  }
+
+  private addThermostatService(name: string, subtype: string, onSetHandler: (value: CharacteristicValue) => void) {
+    const thermostatService = this.accessory.getService(name) ||
+      this.accessory.addService(this.platform.Service.Thermostat, name, subtype);
+    thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature).onSet(onSetHandler);
+    this.services.push(thermostatService);
+  }
+
+  private addTemperatureSensorService(name: string, subtype: string): Service {
+    const tempService = this.accessory.getService(name) ||
+      this.accessory.addService(this.platform.Service.TemperatureSensor, name, subtype);
+    this.services.push(tempService);
+    return tempService; // Ensure the service is returned
+  }
+
+  private addHumiditySensorService(name: string, subtype: string): Service {
+    const humidityService = this.accessory.getService(name) ||
+      this.accessory.addService(this.platform.Service.HumiditySensor, name, subtype);
+    this.services.push(humidityService);
+    return humidityService; // Ensure the service is returned
+  }
+
+  private addContactSensorService(name: string, subtype: string) {
+    const contactService = this.accessory.getService(name) ||
+      this.accessory.addService(this.platform.Service.ContactSensor, name, subtype);
+    this.services.push(contactService);
   }
 
   private handleSaunaPowerSet(value: CharacteristicValue) {
@@ -313,7 +234,8 @@ export class OpenSaunaAccessory {
     }
 
     // Update the characteristic value to reflect the current state
-    this.saunaPowerSwitch?.updateCharacteristic(this.platform.Characteristic.On, value);
+    this.services.find(s => s.subtype === 'sauna-power')
+      ?.updateCharacteristic(this.platform.Characteristic.On, value);
   }
 
   private handleSteamPowerSet(value: CharacteristicValue) {
@@ -327,7 +249,8 @@ export class OpenSaunaAccessory {
     }
 
     // Update the characteristic value to reflect the current state
-    this.steamPowerSwitch?.updateCharacteristic(this.platform.Characteristic.On, value);
+    this.services.find(s => s.subtype === 'steam-power')
+      ?.updateCharacteristic(this.platform.Characteristic.On, value);
   }
 
   private handleLightPowerSet(value: CharacteristicValue) {
@@ -337,7 +260,8 @@ export class OpenSaunaAccessory {
     }
 
     // Update the characteristic value to reflect the current state
-    this.lightPowerSwitch?.updateCharacteristic(this.platform.Characteristic.On, value);
+    this.services.find(s => s.subtype === 'light-power')
+      ?.updateCharacteristic(this.platform.Characteristic.On, value);
   }
 
   private handleFanPowerSet(value: CharacteristicValue) {
@@ -347,7 +271,8 @@ export class OpenSaunaAccessory {
     }
 
     // Update the characteristic value to reflect the current state
-    this.fanPowerSwitch?.updateCharacteristic(this.platform.Characteristic.On, value);
+    this.services.find(s => s.subtype === 'fan-power')
+      ?.updateCharacteristic(this.platform.Characteristic.On, value);
   }
 
   // Handle target temperature set events for sauna
@@ -473,13 +398,13 @@ export class OpenSaunaAccessory {
         powerPins = this.config.gpioPins.saunaPowerPins;
         maxTemperature = this.config.saunaMaxTemperature;
         safetyTemperature = this.config.saunaSafetyTemperature;
-        switchService = this.saunaPowerSwitch;
+        switchService = this.services.find(s => s.subtype === 'sauna-power');
         break;
       case 'steam':
         powerPins = this.config.gpioPins.steamPowerPins;
         maxTemperature = this.config.steamMaxTemperature;
         safetyTemperature = this.config.steamSafetyTemperature;
-        switchService = this.steamPowerSwitch;
+        switchService = this.services.find(s => s.subtype === 'steam-power');
         break;
     }
 
