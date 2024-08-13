@@ -1,81 +1,11 @@
-import fs from 'fs';
-import path from 'path';
+import { createTestPlatformAndAccessory, saunaConfig } from './setup';
+import { mockDigitalWrite } from '../jest.setup';
+
 import { OpenSaunaAccessory } from '../platformAccessory';
 import { OpenSaunaPlatform } from '../platform';
-import { PlatformAccessory, API, Logger, PlatformConfig } from 'homebridge';
-import { mockDigitalWrite } from '../jest.setup';
-import { OpenSaunaConfig } from '../settings';
+import { PlatformAccessory} from 'homebridge';
 
-// Load configuration from config.json
-const configPath = path.resolve(__dirname, '../config.json');
-const configData = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-
-// Extract the first OpenSaunaConfig from the platforms array
-const saunaConfig: OpenSaunaConfig = configData.platforms[0];
-
-// Mock Homebridge API and services
-const mockTemperatureSensorService = {
-  setCharacteristic: jest.fn(),
-  updateCharacteristic: jest.fn(),
-};
-
-const mockSwitchService = {
-  setCharacteristic: jest.fn(),
-  getCharacteristic: jest.fn().mockReturnThis(),
-  onSet: jest.fn(),
-  updateCharacteristic: jest.fn(),
-};
-
-const mockHap = {
-  Service: {
-    Switch: jest.fn().mockImplementation(() => mockSwitchService),
-    TemperatureSensor: jest.fn().mockImplementation(() => mockTemperatureSensorService),
-    Thermostat: jest.fn().mockImplementation(() => ({
-      setCharacteristic: jest.fn(),
-      getCharacteristic: jest.fn().mockReturnThis(),
-      onSet: jest.fn(),
-    })),
-    HumiditySensor: jest.fn().mockImplementation(() => ({
-      setCharacteristic: jest.fn(),
-      updateCharacteristic: jest.fn(),
-    })),
-    ContactSensor: jest.fn().mockImplementation(() => ({
-      setCharacteristic: jest.fn(),
-      updateCharacteristic: jest.fn(),
-    })),
-  },
-  Characteristic: {
-    On: jest.fn(),
-    Name: jest.fn(),
-    CurrentTemperature: jest.fn(),
-    TargetTemperature: jest.fn(),
-    CurrentRelativeHumidity: jest.fn(),
-    ContactSensorState: {
-      CONTACT_DETECTED: jest.fn(),
-      CONTACT_NOT_DETECTED: jest.fn(),
-    },
-  },
-};
-
-const mockAPI: API = {
-  hap: mockHap,
-  on: jest.fn(),
-  registerPlatformAccessories: jest.fn(),
-  unregisterPlatformAccessories: jest.fn(),
-  updatePlatformAccessories: jest.fn(),
-  publishExternalAccessories: jest.fn(),
-  registerAccessory: jest.fn(),
-} as unknown as API;
-
-const mockLogger: Logger = {
-  debug: jest.fn(),
-  error: jest.fn(),
-  info: jest.fn(),
-  log: jest.fn(),
-  warn: jest.fn(),
-} as unknown as Logger;
-
-describe('OpenSaunaAccessory Safety Tests', () => {
+describe('OpenSaunaAccessory Safety Test', () => {
   let platform: OpenSaunaPlatform;
   let accessory: PlatformAccessory;
   let saunaAccessory: OpenSaunaAccessory;
@@ -83,28 +13,13 @@ describe('OpenSaunaAccessory Safety Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    platform = new OpenSaunaPlatform(
-      mockLogger,
-      { platform: 'OpenSauna' } as PlatformConfig,
-      mockAPI,
-    );
-
-    accessory = {
-      getService: jest.fn().mockImplementation((serviceName) => {
-        if (serviceName.includes('Temperature')) {
-          return mockTemperatureSensorService;
-        }
-        return mockSwitchService; // Return the mocked Switch service
-      }),
-      addService: jest.fn().mockImplementation(() => mockSwitchService),
-    } as unknown as PlatformAccessory;
-
-    saunaAccessory = new OpenSaunaAccessory(platform, accessory, saunaConfig);
+    // Use the setup function to create instances
+    ({ platform, accessory, saunaAccessory } = createTestPlatformAndAccessory());
   });
 
   afterEach(() => {
     // Ensure cleanup of timers and intervals
-    saunaAccessory['clearIntervalsAndTimeouts']();
+    (saunaAccessory as OpenSaunaAccessory).clearIntervalsAndTimeouts();
     jest.clearAllTimers();
   });
 
