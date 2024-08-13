@@ -99,7 +99,7 @@ describe('OpenSaunaAccessory Safety Tests', () => {
       addService: jest.fn().mockImplementation(() => mockSwitchService),
     } as unknown as PlatformAccessory;
 
-    saunaAccessory = new OpenSaunaAccessory(platform, accessory, saunaConfig, 'sauna');
+    saunaAccessory = new OpenSaunaAccessory(platform, accessory, saunaConfig);
   });
 
   afterEach(() => {

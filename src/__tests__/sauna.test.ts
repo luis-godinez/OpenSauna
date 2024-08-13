@@ -99,7 +99,7 @@ describe('OpenSaunaAccessory Sauna Tests', () => {
       })),
     } as unknown as PlatformAccessory;
 
-    saunaAccessory = new OpenSaunaAccessory(platform, accessory, saunaConfig, 'sauna');
+    saunaAccessory = new OpenSaunaAccessory(platform, accessory, saunaConfig);
 
     // Mocking methods if they do not exist
     (saunaAccessory as any).handleDoorStateChange = (doorType: string, doorOpen: boolean) => {

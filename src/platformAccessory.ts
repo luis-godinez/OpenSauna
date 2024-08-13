@@ -32,7 +32,6 @@ export class OpenSaunaAccessory {
     private readonly platform: OpenSaunaPlatform,
     private readonly accessory: PlatformAccessory,
     private readonly config: OpenSaunaConfig,
-    private readonly accessoryType: 'sauna' | 'steam' | 'light' | 'fan',
   ) {
     // Initialize RPIO with desired options
     rpio.init({
@@ -65,7 +64,7 @@ export class OpenSaunaAccessory {
         }
       });
 
-    // Initialize all necessary services based on the type of accessory
+    // Initialize all necessary services based on the config
     this.setupAccessory();
 
     // Ensure GPIO pins are cleaned up on process exit
@@ -141,81 +140,95 @@ export class OpenSaunaAccessory {
     this.initializeGpioPins();
 
     // Setup switches
-    this.saunaPowerSwitch =
-      this.accessory.getService('Sauna Power') ||
-      this.accessory.addService(
-        this.platform.Service.Switch,
-        'Sauna Power',
-        'sauna-power',
-      );
-    this.saunaPowerSwitch
-      .getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.handleSaunaPowerSet.bind(this));
+    if (this.config.hasSauna) {
+      this.saunaPowerSwitch =
+        this.accessory.getService('Sauna Power') ||
+        this.accessory.addService(
+          this.platform.Service.Switch,
+          'Sauna Power',
+          'sauna-power',
+        );
+      this.saunaPowerSwitch
+        .getCharacteristic(this.platform.Characteristic.On)
+        .onSet(this.handleSaunaPowerSet.bind(this));
+    }
 
-    this.steamPowerSwitch =
-      this.accessory.getService('Steam Power') ||
-      this.accessory.addService(
-        this.platform.Service.Switch,
-        'Steam Power',
-        'steam-power',
-      );
-    this.steamPowerSwitch
-      .getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.handleSteamPowerSet.bind(this));
+    if (this.config.hasSteam) {
+      this.steamPowerSwitch =
+        this.accessory.getService('Steam Power') ||
+        this.accessory.addService(
+          this.platform.Service.Switch,
+          'Steam Power',
+          'steam-power',
+        );
+      this.steamPowerSwitch
+        .getCharacteristic(this.platform.Characteristic.On)
+        .onSet(this.handleSteamPowerSet.bind(this));
+    }
 
-    this.lightPowerSwitch =
-      this.accessory.getService('Light Power') ||
-      this.accessory.addService(
-        this.platform.Service.Switch,
-        'Light Power',
-        'light-power',
-      );
-    this.lightPowerSwitch
-      .getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.handleLightPowerSet.bind(this));
+    if (this.config.hasLight) {
+      this.lightPowerSwitch =
+        this.accessory.getService('Light Power') ||
+        this.accessory.addService(
+          this.platform.Service.Switch,
+          'Light Power',
+          'light-power',
+        );
+      this.lightPowerSwitch
+        .getCharacteristic(this.platform.Characteristic.On)
+        .onSet(this.handleLightPowerSet.bind(this));
+    }
 
-    this.fanPowerSwitch =
-      this.accessory.getService('Fan Power') ||
-      this.accessory.addService(
-        this.platform.Service.Switch,
-        'Fan Power',
-        'fan-power',
-      );
-    this.fanPowerSwitch
-      .getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.handleFanPowerSet.bind(this));
+    if (this.config.hasFan) {
+      this.fanPowerSwitch =
+        this.accessory.getService('Fan Power') ||
+        this.accessory.addService(
+          this.platform.Service.Switch,
+          'Fan Power',
+          'fan-power',
+        );
+      this.fanPowerSwitch
+        .getCharacteristic(this.platform.Characteristic.On)
+        .onSet(this.handleFanPowerSet.bind(this));
+    }
 
     // Setup thermostats
-    this.saunaThermostat =
-      this.accessory.getService('Sauna Thermostat') ||
-      this.accessory.addService(
-        this.platform.Service.Thermostat,
-        'Sauna Thermostat',
-        'sauna-thermostat',
-      );
-    this.saunaThermostat
-      .getCharacteristic(this.platform.Characteristic.TargetTemperature)
-      .onSet(this.handleSaunaTargetTemperatureSet.bind(this));
+    if (this.config.hasSauna) {
+      this.saunaThermostat =
+        this.accessory.getService('Sauna Thermostat') ||
+        this.accessory.addService(
+          this.platform.Service.Thermostat,
+          'Sauna Thermostat',
+          'sauna-thermostat',
+        );
+      this.saunaThermostat
+        .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+        .onSet(this.handleSaunaTargetTemperatureSet.bind(this));
+    }
 
-    this.steamThermostat =
-      this.accessory.getService('Steam Thermostat') ||
-      this.accessory.addService(
-        this.platform.Service.Thermostat,
-        'Steam Thermostat',
-        'steam-thermostat',
-      );
-    this.steamThermostat
-      .getCharacteristic(this.platform.Characteristic.TargetTemperature)
-      .onSet(this.handleSteamTargetTemperatureSet.bind(this));
+    if (this.config.hasSteam) {
+      this.steamThermostat =
+        this.accessory.getService('Steam Thermostat') ||
+        this.accessory.addService(
+          this.platform.Service.Thermostat,
+          'Steam Thermostat',
+          'steam-thermostat',
+        );
+      this.steamThermostat
+        .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+        .onSet(this.handleSteamTargetTemperatureSet.bind(this));
+    }
 
     // Setup temperature sensors
-    this.saunaTemperatureSensor =
-      this.accessory.getService('Sauna Temperature') ||
-      this.accessory.addService(
-        this.platform.Service.TemperatureSensor,
-        'Sauna Temperature',
-        'sauna-temperature',
-      );
+    if (this.config.hasSauna) {
+      this.saunaTemperatureSensor =
+        this.accessory.getService('Sauna Temperature') ||
+        this.accessory.addService(
+          this.platform.Service.TemperatureSensor,
+          'Sauna Temperature',
+          'sauna-temperature',
+        );
+    }
 
     this.pcbTemperatureSensor =
       this.accessory.getService('PCB Temperature') ||
@@ -243,38 +256,44 @@ export class OpenSaunaAccessory {
     });
 
     // Setup steam temperature and humidity sensors
-    this.steamTemperatureSensor =
-      this.accessory.getService('Steam Temperature') ||
-      this.accessory.addService(
-        this.platform.Service.TemperatureSensor,
-        'Steam Temperature',
-        'steam-temperature',
-      );
+    if (this.config.hasSteam) {
+      this.steamTemperatureSensor =
+        this.accessory.getService('Steam Temperature') ||
+        this.accessory.addService(
+          this.platform.Service.TemperatureSensor,
+          'Steam Temperature',
+          'steam-temperature',
+        );
 
-    this.steamHumiditySensor =
-      this.accessory.getService('Steam Humidity') ||
-      this.accessory.addService(
-        this.platform.Service.HumiditySensor,
-        'Steam Humidity',
-        'steam-humidity',
-      );
+      this.steamHumiditySensor =
+        this.accessory.getService('Steam Humidity') ||
+        this.accessory.addService(
+          this.platform.Service.HumiditySensor,
+          'Steam Humidity',
+          'steam-humidity',
+        );
+    }
 
     // Setup door sensors
-    this.saunaDoorSensor =
-      this.accessory.getService('Sauna Door') ||
-      this.accessory.addService(
-        this.platform.Service.ContactSensor,
-        'Sauna Door',
-        'sauna-door',
-      );
+    if (this.config.hasSauna) {
+      this.saunaDoorSensor =
+        this.accessory.getService('Sauna Door') ||
+        this.accessory.addService(
+          this.platform.Service.ContactSensor,
+          'Sauna Door',
+          'sauna-door',
+        );
+    }
 
-    this.steamDoorSensor =
-      this.accessory.getService('Steam Door') ||
-      this.accessory.addService(
-        this.platform.Service.ContactSensor,
-        'Steam Door',
-        'steam-door',
-      );
+    if (this.config.hasSteam) {
+      this.steamDoorSensor =
+        this.accessory.getService('Steam Door') ||
+        this.accessory.addService(
+          this.platform.Service.ContactSensor,
+          'Steam Door',
+          'steam-door',
+        );
+    }
 
     // Monitor temperatures, humidity, and door states
     this.monitorTemperatures();

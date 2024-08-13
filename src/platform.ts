@@ -59,32 +59,13 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     devices.steamSafetyTemperature = devices.steamSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
     devices.controllerSafetyTemperature = devices.controllerSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 194 : 90);
 
-    // Conditionally add Sauna accessory
-    if (devices.hasSauna) {
-      this.addAccessory(devices, 'sauna');
-    }
-
-    // Conditionally add Steam accessory
-    if (devices.hasSteam) {
-      this.addAccessory(devices, 'steam');
-    }
-
-    // Add Light and Fan accessories if they exist
-    if (devices.hasLight) {
-      this.addAccessory(devices, 'light');
-    }
-
-    if (devices.hasFan) {
-      this.addAccessory(devices, 'fan');
-    }
+    // Add a single accessory with all configured services
+    this.addAccessory(devices);
   }
 
-  private addAccessory(
-    devices: OpenSaunaConfig,
-    type: 'sauna' | 'steam' | 'light' | 'fan',
-  ) {
-    // Generate a unique UUID for each accessory
-    const uuid = this.api.hap.uuid.generate(`${devices.name}-${type}`);
+  private addAccessory(devices: OpenSaunaConfig) {
+    // Generate a unique UUID for the combined accessory
+    const uuid = this.api.hap.uuid.generate(devices.name);
     const existingAccessory = this.accessories.find(
       (accessory) => accessory.UUID === uuid,
     );
@@ -95,14 +76,14 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
         'Restoring existing accessory from cache:',
         existingAccessory.displayName,
       );
-      new OpenSaunaAccessory(this, existingAccessory, devices, type);
+      new OpenSaunaAccessory(this, existingAccessory, devices);
     } else {
       // Create a new accessory
-      this.log.info('Adding new accessory:', devices.name, type);
+      this.log.info('Adding new accessory:', devices.name);
       const accessory = new this.api.platformAccessory(devices.name, uuid);
 
       // Create the accessory handler
-      new OpenSaunaAccessory(this, accessory, devices, type);
+      new OpenSaunaAccessory(this, accessory, devices);
 
       // Register the accessory
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
