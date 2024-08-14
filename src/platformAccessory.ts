@@ -408,26 +408,66 @@ export class OpenSaunaAccessory {
     );
   }
 
+  private handleSaunaModeChange(value: CharacteristicValue) {
+    this.platform.log.info('Sauna Mode changed to:', value);
+
+    const saunaService = this.accessory.getService('sauna-thermostat');
+
+    if (saunaService) {
+      saunaService
+        .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+        .updateValue(value);
+
+      const isSaunaRunning = this.isSaunaRunning();
+
+      if (value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
+        if (!isSaunaRunning) {
+          this.platform.log.info('Turning sauna ON due to HEAT mode.');
+          this.handleSaunaPowerSet(true);
+        }
+      } else if (value === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
+        if (isSaunaRunning) {
+          this.platform.log.info('Turning sauna OFF due to OFF mode.');
+          this.handleSaunaPowerSet(false);
+        }
+        // Ensure the TargetTemperature is retained and not reset
+        const currentTemperature = saunaService.getCharacteristic(
+          this.platform.Characteristic.TargetTemperature,
+        ).value || 0;
+        saunaService
+          .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+          .updateValue(currentTemperature); // Retain the temperature value
+      } else {
+        this.platform.log.warn('Unexpected sauna mode:', value);
+      }
+    }
+  }
+
   private handleSaunaTargetTemperatureSet(value: CharacteristicValue) {
     this.platform.log.info('Sauna Target Temperature set to:', value);
 
-    const currentMode = this.accessory
-      .getService('sauna-thermostat')
-      ?.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-      .value;
+    const saunaService = this.accessory.getService('sauna-thermostat');
+    const isSaunaRunning = this.isSaunaRunning();
 
-    if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
-      if (!this.isSaunaRunning()) {
-        this.platform.log.info('Turning sauna ON due to HEAT state.');
-        this.handleSaunaPowerSet(true);
+    if (saunaService) {
+      saunaService
+        .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+        .updateValue(value);
+
+      this.platform.log.info(`Updated Sauna Target Temperature to: ${value}`);
+
+      // Ensure value is a number before comparison
+      if (typeof value === 'number') {
+        // Check if the sauna is in HEAT mode and the temperature is greater than 0
+        const currentMode = saunaService
+          .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+          .value;
+
+        if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.HEAT && value > 0 && !isSaunaRunning) {
+          this.platform.log.info('Turning sauna ON due to temperature set in HEAT mode.');
+          this.handleSaunaPowerSet(true);
+        }
       }
-    } else if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
-      if (this.isSaunaRunning()) {
-        this.platform.log.info('Turning sauna OFF due to OFF state.');
-        this.handleSaunaPowerSet(false);
-      }
-    } else {
-      this.platform.log.warn('Unexpected sauna mode:', currentMode);
     }
   }
 
@@ -436,27 +476,45 @@ export class OpenSaunaAccessory {
     return rpio.read(this.config.gpioPins.saunaPowerPins[0]) === rpio.HIGH;
   }
 
+  private handleSteamModeChange(value: CharacteristicValue) {
+    this.platform.log.info('Steam Mode changed to:', value);
+
+    const steamService = this.accessory.getService('steam-thermostat');
+
+    if (steamService) {
+      steamService
+        .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+        .updateValue(value);
+
+      const isSteamRunning = this.isSteamRunning();
+
+      if (value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
+        if (!isSteamRunning) {
+          this.platform.log.info('Turning steam ON due to HEAT mode.');
+          this.handleSteamPowerSet(true);
+        }
+      } else if (value === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
+        if (isSteamRunning) {
+          this.platform.log.info('Turning steam OFF due to OFF mode.');
+          this.handleSteamPowerSet(false);
+        }
+      } else {
+        this.platform.log.warn('Unexpected steam mode:', value);
+      }
+    }
+  }
+
   private handleSteamTargetTemperatureSet(value: CharacteristicValue) {
     this.platform.log.info('Steam Target Temperature set to:', value);
 
-    const currentMode = this.accessory
-      .getService('steam-thermostat')
-      ?.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-      .value;
+    const steamService = this.accessory.getService('steam-thermostat');
 
-    // Only attempt to turn on if not already running and set to HEAT
-    if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
-      if (!this.isSteamRunning()) {
-        this.platform.log.info('Turning steam ON due to HEAT state.');
-        this.handleSteamPowerSet(true);
-      }
-    } else if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
-      if (this.isSteamRunning()) {
-        this.platform.log.info('Turning steam OFF due to OFF state.');
-        this.handleSteamPowerSet(false);
-      }
-    }else {
-      this.platform.log.warn('Unexpected sauna mode:', currentMode);
+    if (steamService) {
+      steamService
+        .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+        .updateValue(value);
+
+      this.platform.log.info(`Updated Steam Target Temperature to: ${value}`);
     }
   }
 

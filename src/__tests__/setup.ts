@@ -9,10 +9,24 @@ import { mockRead } from '../jest.setup';
 // Mock Homebridge API and services
 const mockCharacteristic = {
   setProps: jest.fn().mockReturnThis(),
-  onSet: jest.fn(),
-  updateCharacteristic: jest.fn(),
-  updateValue: jest.fn(),
-  setValue: jest.fn().mockReturnThis(),
+  onSet: jest.fn().mockReturnThis(),
+  onGet: jest.fn().mockReturnThis(),
+  updateCharacteristic: jest.fn().mockImplementation((newValue) => {
+    mockCharacteristic.value = newValue; // Update the internal value
+    return mockCharacteristic;           // Allows method chaining
+  }),
+  updateValue: jest.fn().mockImplementation((newValue) => {
+    mockCharacteristic.value = newValue; // Update the internal value
+    return mockCharacteristic;           // Allows method chaining
+  }),
+  setValue: jest.fn().mockImplementation((newValue) => {
+    mockCharacteristic.value = newValue; // Update the internal value
+    return mockCharacteristic;           // Allows method chaining
+  }),
+  getValue: jest.fn().mockImplementation(() => {
+    return mockCharacteristic.value;      // Return the internal value
+  }),
+  value: 0,                 // Default value, can be overridden per test case
 };
 
 const mockTemperatureSensorService = {
@@ -72,10 +86,16 @@ const mockHap = {
     AccessoryInformation: jest.fn().mockImplementation(() => mockAccessoryInformationService),
   },
   Characteristic: {
+    TargetHeatingCoolingState: {
+      OFF: 0,
+      HEAT: 1,
+    },
+    CurrentHeatingCoolingState: {
+      OFF: 0,
+      HEAT: 1,
+    },
     On: jest.fn(),
     CurrentTemperature: jest.fn(),
-    TargetHeatingCoolingState: jest.fn(),
-    CurrentHeatingCoolingState: jest.fn(),
     ContactSensorState: {
       CONTACT_DETECTED: 0,
       CONTACT_NOT_DETECTED: 1,
@@ -93,15 +113,15 @@ const mockAPI: API = {
   registerAccessory: jest.fn(),
 } as any;
 
+export { mockAPI };
+
 const mockLogger: Logger = {
   debug: jest.fn(),
   error: jest.fn(),
-  info: jest.fn(),
+  info: jest.fn((...args) => console.info(...args)),  // Print info logs to console
   log: jest.fn(),
-  warn: jest.fn(),
+  warn: jest.fn((...args) => console.warn(...args)),  // Print warnings to console
 } as any;
-
-export { mockAPI, mockLogger };
 
 // Setup function to initialize platform and accessory for tests
 export function createTestPlatformAndAccessory() {
