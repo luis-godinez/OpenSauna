@@ -12,6 +12,7 @@ const mockCharacteristic = {
   onSet: jest.fn(),
   updateCharacteristic: jest.fn(),
   updateValue: jest.fn(),
+  setValue: jest.fn().mockReturnThis(),
 };
 
 const mockTemperatureSensorService = {

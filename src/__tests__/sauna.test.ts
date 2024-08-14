@@ -1,5 +1,5 @@
 import { createTestPlatformAndAccessory, saunaConfig } from './setup';
-import { mockDigitalWrite } from '../jest.setup';
+import { mockDigitalWrite, mockRead } from '../jest.setup';
 
 import { OpenSaunaAccessory } from '../platformAccessory';
 import { OpenSaunaPlatform } from '../platform';
@@ -21,6 +21,36 @@ describe('OpenSaunaAccessory Sauna Test', () => {
     // Ensure cleanup of timers and intervals
     (saunaAccessory as OpenSaunaAccessory).clearIntervalsAndTimeouts();
     jest.clearAllTimers();
+  });
+
+  it('should turn on sauna when in HEAT mode and sauna is not running', () => {
+    mockRead.mockReturnValue(0); // Mock sauna not running
+
+    (saunaAccessory as any).handleSaunaTargetTemperatureSet(75);
+
+    saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
+      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1);
+    });
+  });
+
+  it('should not turn on sauna if already running', () => {
+    mockRead.mockReturnValue(1); // Mock sauna already running
+
+    (saunaAccessory as any).handleSaunaTargetTemperatureSet(75);
+
+    expect(mockDigitalWrite).not.toHaveBeenCalled();
+  });
+
+  it('should not turn off sauna if already off', () => {
+    mockRead.mockReturnValue(0); // Mock sauna already off
+    const thermostatService = accessory.getService('sauna-thermostat');
+    if (thermostatService) {
+      (thermostatService.getCharacteristic(platform.Characteristic.TargetHeatingCoolingState).value as number) = 0; // Set mode to OFF
+
+      (saunaAccessory as any).handleSaunaTargetTemperatureSet(0);
+
+      expect(mockDigitalWrite).not.toHaveBeenCalled();
+    }
   });
 
   test('should keep sauna heater on when door opens if saunaOnWhileDoorOpen is true', () => {

@@ -417,11 +417,23 @@ export class OpenSaunaAccessory {
       .value;
 
     if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
-      // Keep the target temperature consistent and toggle sauna power
-      this.handleSaunaPowerSet(true);
+      if (!this.isSaunaRunning()) {
+        this.platform.log.info('Turning sauna ON due to HEAT state.');
+        this.handleSaunaPowerSet(true);
+      }
     } else if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
-      this.handleSaunaPowerSet(false);
+      if (this.isSaunaRunning()) {
+        this.platform.log.info('Turning sauna OFF due to OFF state.');
+        this.handleSaunaPowerSet(false);
+      }
+    } else {
+      this.platform.log.warn('Unexpected sauna mode:', currentMode);
     }
+  }
+
+  // Ensure this helper method correctly checks the state of the sauna
+  private isSaunaRunning(): boolean {
+    return rpio.read(this.config.gpioPins.saunaPowerPins[0]) === rpio.HIGH;
   }
 
   private handleSteamTargetTemperatureSet(value: CharacteristicValue) {
@@ -432,12 +444,25 @@ export class OpenSaunaAccessory {
       ?.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
       .value;
 
+    // Only attempt to turn on if not already running and set to HEAT
     if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
-      // Keep the target temperature consistent and toggle steam power
-      this.handleSteamPowerSet(true);
+      if (!this.isSteamRunning()) {
+        this.platform.log.info('Turning steam ON due to HEAT state.');
+        this.handleSteamPowerSet(true);
+      }
     } else if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
-      this.handleSteamPowerSet(false);
+      if (this.isSteamRunning()) {
+        this.platform.log.info('Turning steam OFF due to OFF state.');
+        this.handleSteamPowerSet(false);
+      }
+    }else {
+      this.platform.log.warn('Unexpected sauna mode:', currentMode);
     }
+  }
+
+  // Helper method to determine if the steam system is currently running
+  private isSteamRunning(): boolean {
+    return rpio.read(this.config.gpioPins.steamPowerPins[0]) === rpio.HIGH;
   }
 
   // Start a system with timeout logic
