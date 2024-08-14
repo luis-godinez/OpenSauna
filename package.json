@@ -21,7 +21,7 @@
   "main": "dist/index.js",
   "scripts": {
     "test": "jest",
-    "lint": "eslint src/**/*.ts --max-warnings=0",
+    "lint": "eslint src",
     "watch": "npm run build && npm link && nodemon",
     "build": "rimraf ./dist && tsc",
     "clean": "rimraf ./dist",
