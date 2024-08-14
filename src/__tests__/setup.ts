@@ -1,5 +1,3 @@
-// setup.test.ts
-
 import fs from 'fs';
 import path from 'path';
 import { OpenSaunaAccessory } from '../platformAccessory';
@@ -8,8 +6,13 @@ import { PlatformAccessory, API, Logger, PlatformConfig } from 'homebridge';
 import { OpenSaunaConfig } from '../settings';
 import { mockRead } from '../jest.setup';
 
-
 // Mock Homebridge API and services
+const mockCharacteristic = {
+  setProps: jest.fn().mockReturnThis(),
+  onSet: jest.fn(),
+  updateCharacteristic: jest.fn(),
+};
+
 const mockTemperatureSensorService = {
   setCharacteristic: jest.fn().mockReturnThis(), // Ensure chaining works
   updateCharacteristic: jest.fn(),
@@ -26,17 +29,24 @@ const mockAccessoryInformationService = {
 
 const mockSwitchService = {
   setCharacteristic: jest.fn().mockReturnThis(), // Ensure chaining works
-  getCharacteristic: jest.fn().mockReturnThis(),
+  getCharacteristic: jest.fn().mockReturnValue(mockCharacteristic),
   onSet: jest.fn(),
   updateCharacteristic: jest.fn(),
 };
 
+// Thermostat service mock
+const mockThermostatService = {
+  setCharacteristic: jest.fn().mockReturnThis(),
+  getCharacteristic: jest.fn().mockReturnValue(mockCharacteristic),
+};
+
 // Export mock services
 export {
-  mockSwitchService,
   mockAccessoryInformationService,
   mockContactSensorService,
   mockTemperatureSensorService,
+  mockThermostatService,
+  mockSwitchService,
 };
 
 // Load configuration from config.json
@@ -56,11 +66,14 @@ const mockHap = {
     })),
     TemperatureSensor: jest.fn().mockImplementation(() => mockTemperatureSensorService),
     ContactSensor: jest.fn().mockImplementation(() => mockContactSensorService),
+    Thermostat: jest.fn().mockImplementation(() => mockThermostatService),
     AccessoryInformation: jest.fn().mockImplementation(() => mockAccessoryInformationService),
   },
   Characteristic: {
     On: jest.fn(),
     CurrentTemperature: jest.fn(),
+    TargetHeatingCoolingState: jest.fn(),
+    CurrentHeatingCoolingState: jest.fn(),
     ContactSensorState: {
       CONTACT_DETECTED: 0,
       CONTACT_NOT_DETECTED: 1,
@@ -107,9 +120,17 @@ export function createTestPlatformAndAccessory() {
       if (serviceName.includes('ContactSensor')) {
         return mockContactSensorService;
       }
-      return mockSwitchService;
+      if (serviceName.includes('Thermostat')) {
+        return mockThermostatService; // Use the thermostat service mock for sauna and steam
+      }
+      return mockSwitchService; // Default to switch service for light and fan
     }),
-    addService: jest.fn().mockImplementation(() => mockSwitchService),
+    addService: jest.fn().mockImplementation((service) => {
+      if (service === platform.Service.Thermostat) {
+        return mockThermostatService;
+      }
+      return mockSwitchService; // Default to switch service for light and fan
+    }),
   } as unknown as PlatformAccessory;
 
   const saunaAccessory = new OpenSaunaAccessory(platform, accessory, saunaConfig);

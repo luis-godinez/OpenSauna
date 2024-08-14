@@ -161,13 +161,8 @@ export class OpenSaunaAccessory {
   private setupAccessory() {
     this.initializeGpioPins();
 
-    // Setup switches and thermostats based on config
+    // Setup thermostats based on config
     if (this.config.hasSauna) {
-      this.saunaPowerSwitch = this.addSwitchService(
-        'Sauna Power',
-        'sauna-power',
-        this.handleSaunaPowerSet.bind(this),
-      );
       this.addThermostatService(
         'Sauna Thermostat',
         'sauna-thermostat',
@@ -176,11 +171,6 @@ export class OpenSaunaAccessory {
     }
 
     if (this.config.hasSteam) {
-      this.steamPowerSwitch = this.addSwitchService(
-        'Steam Power',
-        'steam-power',
-        this.handleSteamPowerSet.bind(this),
-      );
       this.addThermostatService(
         'Steam Thermostat',
         'steam-thermostat',
@@ -249,7 +239,7 @@ export class OpenSaunaAccessory {
     process.on('exit', this.cleanupGpioPins.bind(this));
   }
 
-  // Set the name characteristic for the sauna power switch
+  // Set the name characteristic for the power switch
   private addSwitchService(
     name: string,
     subtype: string,
@@ -278,13 +268,21 @@ export class OpenSaunaAccessory {
         name,
         subtype,
       );
+
+    // Limit the TargetHeatingCoolingState to only "Off" and "Heat"
     thermostatService
-      .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+      .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+      .setProps({
+        validValues: [
+          this.platform.Characteristic.TargetHeatingCoolingState.OFF,
+          this.platform.Characteristic.TargetHeatingCoolingState.HEAT,
+        ],
+      })
       .onSet(onSetHandler);
-    thermostatService.setCharacteristic(
-      this.platform.Characteristic.Name,
-      name,
-    ); // Set the name
+
+    // Set the name characteristic
+    thermostatService.setCharacteristic(this.platform.Characteristic.Name, name);
+
     return thermostatService;
   }
 
