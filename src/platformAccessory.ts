@@ -471,7 +471,7 @@ export class OpenSaunaAccessory {
 
   // Utility to set power state on GPIO
   private setPowerState(pins: number[], state: CharacteristicValue) {
-    const powerState = state ? rpio.LOW : rpio.HIGH; // Invert logic if relays are active low
+    const powerState = state ? rpio.HIGH : rpio.LOW;
     pins.forEach((pin) => {
       rpio.open(pin, rpio.OUTPUT);
       rpio.write(pin, powerState);
