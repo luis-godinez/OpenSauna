@@ -342,16 +342,15 @@ export class OpenSaunaAccessory {
 
   private handleSaunaPowerSet(value: CharacteristicValue) {
     this.platform.log.info('Sauna Power set to:', value);
+    this.setPowerState(this.config.gpioPins.saunaPowerPins, value);
 
     if (value) {
-      // Start the sauna with the timeout logic
       this.startSystem(
         'sauna',
         this.config.gpioPins.saunaPowerPins,
         this.config.saunaTimeout,
       );
     } else {
-      // Stop the sauna immediately if turned off manually
       this.stopSystem('sauna', this.config.gpioPins.saunaPowerPins);
     }
 
@@ -363,16 +362,17 @@ export class OpenSaunaAccessory {
   }
 
   private handleSteamPowerSet(value: CharacteristicValue) {
-    const currentTemperature = this.accessory
-      .getService('steam-thermostat')
-      ?.getCharacteristic(this.platform.Characteristic.TargetTemperature).value;
+    this.platform.log.info('Steam Power set to:', value);
+    this.setPowerState(this.config.gpioPins.steamPowerPins, value);
 
     if (value) {
-      this.platform.log.info(`Turning steam on with target temperature: ${currentTemperature}`);
-      this.setPowerState(this.config.gpioPins.steamPowerPins, true);
+      this.startSystem(
+        'steam',
+        this.config.gpioPins.steamPowerPins,
+        this.config.steamTimeout,
+      );
     } else {
-      this.platform.log.info('Turning steam off');
-      this.setPowerState(this.config.gpioPins.steamPowerPins, false);
+      this.stopSystem('steam', this.config.gpioPins.steamPowerPins);
     }
 
     // Update the characteristic value to reflect the current state
