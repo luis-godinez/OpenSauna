@@ -167,16 +167,15 @@ export function createTestPlatformAndAccessory() {
       const currentLevel = mockRead(pin);
       if (currentLevel === expectedLevel) {
         if (doorOpen && !saunaConfig.saunaOnWhileDoorOpen) {
-          saunaAccessory['handleSaunaPowerSet'](false);
+          console.log('Door open, heat disabled');
+          saunaAccessory['handleSaunaStateSet'](0);
         } else if (!doorOpen && !saunaConfig.saunaOnWhileDoorOpen) {
-          saunaAccessory['handleSaunaPowerSet'](true);
+          console.log('Door closed, heat enabled');
+          saunaAccessory['handleSaunaStateSet'](1);
         }
       }
     }
   };
-
-  (saunaAccessory as any).setTargetTemperature = jest.fn();
-  (saunaAccessory as any).getCurrentTargetTemperature = jest.fn(() => saunaConfig.targetTemperatures.sauna);
 
   return { platform, accessory, saunaAccessory };
 }

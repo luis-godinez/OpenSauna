@@ -42,10 +42,6 @@
           "control": false
         }
       ],
-      "targetTemperatures": {
-        "sauna": 80,
-        "steam": 40
-      },
       "saunaOnWhileDoorOpen": true,
       "steamOnWhileDoorOpen": true,
       "saunaTimeout": 60,

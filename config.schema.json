@@ -154,25 +154,6 @@
           }
         },
         "default": []
-      },
-      "targetTemperatures": {
-        "type": "object",
-        "title": "Target Temperatures",
-        "description": "Optional target temperatures for sauna and steam.",
-        "properties": {
-          "sauna": {
-            "type": "number",
-            "title": "Sauna Target Temperature",
-            "description": "Optional target temperature for sauna.",
-            "default": null
-          },
-          "steam": {
-            "type": "number",
-            "title": "Steam Target Temperature",
-            "description": "Optional target temperature for steam.",
-            "default": null
-          }
-        }
       }
     }
   }

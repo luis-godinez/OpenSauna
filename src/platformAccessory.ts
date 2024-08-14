@@ -15,8 +15,12 @@ export class OpenSaunaAccessory {
   private auxTemperatureSensors: Map<string, Service> = new Map(); // Define auxTemperatureSensors
   private steamHumiditySensor?: Service; // Define steamHumiditySensor
   private steamTemperatureSensor?: Service; // Define steamTemperatureSensor
-  private saunaPowerSwitch?: Service; // Define saunaPowerSwitch
-  private steamPowerSwitch?: Service; // Define steamPowerSwitch
+  private saunaRunning: boolean = false;
+  private lastSaunaTargetTemperature: number = 0; // Store last set target temperature
+
+  private steamRunning: boolean = false;
+  private lastSteamTargetTemperature: number = 0; // Store last set target temperature
+
   private lightPowerSwitch?: Service; // Define lightPowerSwitch
   private fanPowerSwitch?: Service; // Define fanPowerSwitch
 
@@ -166,7 +170,8 @@ export class OpenSaunaAccessory {
       this.addThermostatService(
         'Sauna Thermostat',
         'sauna-thermostat',
-        this.handleSaunaTargetTemperatureSet.bind(this),
+        this.handleSaunaStateSet.bind(this),
+        this.handleSaunaTemperatureSet.bind(this),
       );
     }
 
@@ -174,7 +179,8 @@ export class OpenSaunaAccessory {
       this.addThermostatService(
         'Steam Thermostat',
         'steam-thermostat',
-        this.handleSteamTargetTemperatureSet.bind(this),
+        this.handleSteamStateSet.bind(this),
+        this.handleSteamTemperatureSet.bind(this),
       );
     }
 
@@ -259,7 +265,8 @@ export class OpenSaunaAccessory {
   private addThermostatService(
     name: string,
     subtype: string,
-    onSetHandler: (value: CharacteristicValue) => void,
+    powerSetHandler: (value: CharacteristicValue) => void,
+    temperatureSetHandler: (value: CharacteristicValue) => void,
   ): Service {
     const thermostatService =
       this.accessory.getService(subtype) ||
@@ -274,7 +281,7 @@ export class OpenSaunaAccessory {
           this.platform.Characteristic.TargetHeatingCoolingState.HEAT,
         ],
       })
-      .onSet(onSetHandler);
+      .onSet(powerSetHandler);
 
     // Initialize the mode to "Off" to avoid unexpected behavior
     thermostatService
@@ -286,6 +293,8 @@ export class OpenSaunaAccessory {
       ? this.config.saunaMaxTemperature
       : this.config.steamMaxTemperature;
 
+    console.log('setting up thermostat');
+
     thermostatService
       .getCharacteristic(this.platform.Characteristic.TargetTemperature)
       .setProps({
@@ -293,6 +302,7 @@ export class OpenSaunaAccessory {
         maxValue: maxTemperature, // Maximum temperature based on user config
         minStep: 1, // Example: 0.5°C increments
       })
+      .onSet(temperatureSetHandler)
       .updateValue(0); // Set initial temperature to 0 to prevent inadvertent heating
 
     // Set the name characteristic
@@ -340,48 +350,6 @@ export class OpenSaunaAccessory {
     return contactService;
   }
 
-  private handleSaunaPowerSet(value: CharacteristicValue) {
-    this.platform.log.info('Sauna Power set to:', value);
-    this.setPowerState(this.config.gpioPins.saunaPowerPins, value);
-
-    if (value) {
-      this.startSystem(
-        'sauna',
-        this.config.gpioPins.saunaPowerPins,
-        this.config.saunaTimeout,
-      );
-    } else {
-      this.stopSystem('sauna', this.config.gpioPins.saunaPowerPins);
-    }
-
-    // Update the characteristic value to reflect the current state
-    this.saunaPowerSwitch?.updateCharacteristic(
-      this.platform.Characteristic.On,
-      value,
-    );
-  }
-
-  private handleSteamPowerSet(value: CharacteristicValue) {
-    this.platform.log.info('Steam Power set to:', value);
-    this.setPowerState(this.config.gpioPins.steamPowerPins, value);
-
-    if (value) {
-      this.startSystem(
-        'steam',
-        this.config.gpioPins.steamPowerPins,
-        this.config.steamTimeout,
-      );
-    } else {
-      this.stopSystem('steam', this.config.gpioPins.steamPowerPins);
-    }
-
-    // Update the characteristic value to reflect the current state
-    this.steamPowerSwitch?.updateCharacteristic(
-      this.platform.Characteristic.On,
-      value,
-    );
-  }
-
   private handleLightPowerSet(value: CharacteristicValue) {
     this.platform.log.info('Light Power set to:', value);
     if (this.config.gpioPins.lightPin !== undefined) {
@@ -408,47 +376,44 @@ export class OpenSaunaAccessory {
     );
   }
 
-  private handleSaunaModeChange(value: CharacteristicValue) {
-    this.platform.log.info('Sauna Mode changed to:', value);
+  private handleSaunaStateSet(value: CharacteristicValue) {
+    this.platform.log.info('Sauna Mode/Power set to:', value);
 
     const saunaService = this.accessory.getService('sauna-thermostat');
-
     if (saunaService) {
       saunaService
         .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
         .updateValue(value);
 
-      const isSaunaRunning = this.isSaunaRunning();
-
       if (value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
-        if (!isSaunaRunning) {
-          this.platform.log.info('Turning sauna ON due to HEAT mode.');
-          this.handleSaunaPowerSet(true);
+        if (!this.saunaRunning) {
+          this.platform.log.info('Turning sauna to HEAT mode.');
+          this.saunaRunning = true;
+          saunaService
+            .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+            .updateValue(this.lastSaunaTargetTemperature); // Restore last target temperature
+          this.startSystem('sauna', this.config.gpioPins.saunaPowerPins, this.config.saunaTimeout);
         }
       } else if (value === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
-        if (isSaunaRunning) {
-          this.platform.log.info('Turning sauna OFF due to OFF mode.');
-          this.handleSaunaPowerSet(false);
+        if (this.saunaRunning) {
+          this.platform.log.info('Turning sauna to OFF mode.');
+          this.saunaRunning = false;
+          this.stopSystem('sauna', this.config.gpioPins.saunaPowerPins);
         }
-        // Ensure the TargetTemperature is retained and not reset
-        const currentTemperature = saunaService.getCharacteristic(
-          this.platform.Characteristic.TargetTemperature,
-        ).value || 0;
-        saunaService
-          .getCharacteristic(this.platform.Characteristic.TargetTemperature)
-          .updateValue(currentTemperature); // Retain the temperature value
       } else {
         this.platform.log.warn('Unexpected sauna mode:', value);
       }
     }
   }
 
-  private handleSaunaTargetTemperatureSet(value: CharacteristicValue) {
+  private handleSaunaTemperatureSet(value: CharacteristicValue) {
     this.platform.log.info('Sauna Target Temperature set to:', value);
 
-    const saunaService = this.accessory.getService('sauna-thermostat');
-    const isSaunaRunning = this.isSaunaRunning();
+    if (typeof value === 'number') {
+      this.lastSaunaTargetTemperature = value; // Store the last set temperature
+    }
 
+    const saunaService = this.accessory.getService('sauna-thermostat');
     if (saunaService) {
       saunaService
         .getCharacteristic(this.platform.Characteristic.TargetTemperature)
@@ -456,55 +421,51 @@ export class OpenSaunaAccessory {
 
       this.platform.log.info(`Updated Sauna Target Temperature to: ${value}`);
 
-      // Ensure value is a number before comparison
-      if (typeof value === 'number') {
-        // Check if the sauna is in HEAT mode and the temperature is greater than 0
-        const currentMode = saunaService
-          .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-          .value;
+      const currentMode = saunaService
+        .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+        .value;
 
-        if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.HEAT && value > 0 && !isSaunaRunning) {
-          this.platform.log.info('Turning sauna ON due to temperature set in HEAT mode.');
-          this.handleSaunaPowerSet(true);
-        }
+      if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.HEAT && value as number > 0) {
+        this.platform.log.info('Ensuring sauna is ON due to temperature set in HEAT mode.');
+        this.startSystem('sauna', this.config.gpioPins.saunaPowerPins, this.config.saunaTimeout);
+      } else if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.OFF || value === 0) {
+        this.platform.log.info('Turning sauna OFF due to temperature set to 0 or OFF mode.');
+        this.stopSystem('sauna', this.config.gpioPins.saunaPowerPins);
       }
     }
   }
 
-  // Ensure this helper method correctly checks the state of the sauna
-  private isSaunaRunning(): boolean {
-    return rpio.read(this.config.gpioPins.saunaPowerPins[0]) === rpio.HIGH;
-  }
-
-  private handleSteamModeChange(value: CharacteristicValue) {
-    this.platform.log.info('Steam Mode changed to:', value);
+  private handleSteamStateSet(value: CharacteristicValue) {
+    this.platform.log.info('Steam Mode/Power set to:', value);
 
     const steamService = this.accessory.getService('steam-thermostat');
-
     if (steamService) {
       steamService
         .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
         .updateValue(value);
 
       const isSteamRunning = this.isSteamRunning();
+      this.platform.log.info(`isRunning:${isSteamRunning}`);
 
       if (value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
         if (!isSteamRunning) {
           this.platform.log.info('Turning steam ON due to HEAT mode.');
-          this.handleSteamPowerSet(true);
+          this.startSystem('steam', this.config.gpioPins.steamPowerPins, this.config.steamTimeout);
         }
       } else if (value === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
         if (isSteamRunning) {
           this.platform.log.info('Turning steam OFF due to OFF mode.');
-          this.handleSteamPowerSet(false);
+          this.stopSystem('steam', this.config.gpioPins.steamPowerPins);
         }
       } else {
-        this.platform.log.warn('Unexpected steam mode:', value);
+        this.platform.log.warn('unexpected steam service');
       }
+    } else {
+      'unexpected steam service';
     }
   }
 
-  private handleSteamTargetTemperatureSet(value: CharacteristicValue) {
+  private handleSteamTemperatureSet(value: CharacteristicValue) {
     this.platform.log.info('Steam Target Temperature set to:', value);
 
     const steamService = this.accessory.getService('steam-thermostat');
@@ -515,6 +476,19 @@ export class OpenSaunaAccessory {
         .updateValue(value);
 
       this.platform.log.info(`Updated Steam Target Temperature to: ${value}`);
+
+      const currentMode = steamService
+        .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+        .value;
+
+      // Ensure power is updated based on temperature set
+      if (typeof value === 'number') {
+        if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.HEAT && value > 0) {
+          this.platform.log.info('Ensuring steam is ON due to temperature set in HEAT mode.');
+          this.setPowerState(this.config.gpioPins.steamPowerPins, true);
+          this.startSystem('steam', this.config.gpioPins.steamPowerPins, this.config.steamTimeout);
+        }
+      }
     }
   }
 
@@ -554,6 +528,7 @@ export class OpenSaunaAccessory {
 
   // Utility to set power state on GPIO
   private setPowerState(pins: number[], state: CharacteristicValue) {
+    this.platform.log.info(`Power ${pins}:${state}`);
     const powerState = state ? rpio.HIGH : rpio.LOW;
     pins.forEach((pin) => {
       rpio.open(pin, rpio.OUTPUT);
@@ -658,13 +633,11 @@ export class OpenSaunaAccessory {
         powerPins = this.config.gpioPins.saunaPowerPins;
         maxTemperature = this.config.saunaMaxTemperature;
         safetyTemperature = this.config.saunaSafetyTemperature;
-        switchService = this.saunaPowerSwitch;
         break;
       case 'steam':
         powerPins = this.config.gpioPins.steamPowerPins;
         maxTemperature = this.config.steamMaxTemperature;
         safetyTemperature = this.config.steamSafetyTemperature;
-        switchService = this.steamPowerSwitch;
         break;
     }
 
@@ -807,11 +780,7 @@ export class OpenSaunaAccessory {
         }
 
         if (humidity > this.config.steamMaxHumidity) {
-          this.setPowerState(this.config.gpioPins.steamPowerPins, false);
-          this.steamPowerSwitch?.updateCharacteristic(
-            this.platform.Characteristic.On,
-            false,
-          ); // Update UI state
+          this.stopSystem('steam', this.config.gpioPins.steamPowerPins);
           this.platform.log.warn(
             'Steam humidity exceeded max humidity. Steam power off.',
           );

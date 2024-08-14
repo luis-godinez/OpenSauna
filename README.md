@@ -76,10 +76,6 @@ To configure the OpenSauna plugin, you can use the Homebridge UI or edit your `c
       "control": null
     }
   ],
-  "targetTemperatures": {
-    "sauna": 80,
-    "steam": 100
-  },
   "saunaOnWhileDoorOpen": true,
   "steamOnWhileDoorOpen": false,
   "saunaTimeout": 60,

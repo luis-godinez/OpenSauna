@@ -17,10 +17,6 @@ export interface OpenSaunaConfig {
   temperatureUnitFahrenheit: boolean; // If true, temperatures are in Fahrenheit; otherwise, Celsius
   gpioPins: GpioConfig; // Configuration of GPIO pins used in the system
   auxSensors: AuxSensorConfig[]; // Configuration of auxiliary sensors
-  targetTemperatures: {
-    sauna: number; // Target temperature for the sauna in degrees
-    steam: number; // Target temperature for the steam room in degrees
-  };
   saunaOnWhileDoorOpen: boolean; // Allows the sauna to be on while the door is open
   steamOnWhileDoorOpen: boolean; // Allows the steam room to be on while the door is open
   saunaTimeout: number; // Maximum runtime for the sauna in minutes before auto-shutdown
