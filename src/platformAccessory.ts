@@ -36,21 +36,32 @@ export class OpenSaunaAccessory {
   ) {
     this.accessory
       .getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, `${this.config.manufacturer}`)
-      .setCharacteristic(this.platform.Characteristic.Name, `${this.config.name}`)
+      .setCharacteristic(
+        this.platform.Characteristic.Manufacturer,
+        `${this.config.manufacturer}`,
+      )
+      .setCharacteristic(
+        this.platform.Characteristic.Name,
+        `${this.config.name}`,
+      )
       .setCharacteristic(this.platform.Characteristic.Model, 'OpenSauna')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, `${this.config.serial}`);
+      .setCharacteristic(
+        this.platform.Characteristic.SerialNumber,
+        `${this.config.serial}`,
+      );
 
     // Initialize RPIO with desired options
     rpio.init({ mapping: 'gpio' });
 
     // Initialize peripherals with error handling and timeouts
-    this.initializePeripherals().then(() => {
-      this.setupAccessory();
-    }).catch((error) => {
-      this.platform.log.error('Initialization failed:', error);
-      this.cleanupGpioPins(); // Ensure GPIO pins are cleaned up on error
-    });
+    this.initializePeripherals()
+      .then(() => {
+        this.setupAccessory();
+      })
+      .catch((error) => {
+        this.platform.log.error('Initialization failed:', error);
+        this.cleanupGpioPins(); // Ensure GPIO pins are cleaned up on error
+      });
 
     process.on('exit', this.cleanupGpioPins.bind(this));
     process.on('SIGINT', () => {
@@ -65,13 +76,22 @@ export class OpenSaunaAccessory {
 
   // Initialize all hardware peripherals asynchronously with error handling
   private async initializePeripherals() {
-    this.validateSensorConfiguration();
+    this.platform.log.info('Starting peripheral initialization...');
 
-    await Promise.all([
-      this.initializeAdc(),
-      this.initializeI2C(),
-      this.initializeGpioPinsAsync(),
-    ]);
+    try {
+      this.validateSensorConfiguration();
+
+      await Promise.all([
+        this.initializeAdc(),
+        this.initializeI2C(),
+        this.initializeGpioPinsAsync(),
+      ]);
+
+      this.platform.log.info('Peripheral initialization completed.');
+    } catch (error) {
+      this.platform.log.error('Peripheral initialization failed:', error);
+      throw error;
+    }
   }
 
   private validateSensorConfiguration() {
@@ -88,7 +108,9 @@ export class OpenSaunaAccessory {
 
     for (const system in systemCount) {
       if (systemCount[system] > 1) {
-        throw new Error(`Only one NTC sensor is allowed for the ${system} system.`);
+        throw new Error(
+          `Only one NTC sensor is allowed for the ${system} system.`,
+        );
       }
     }
   }
@@ -109,10 +131,18 @@ export class OpenSaunaAccessory {
         rpio.open(this.config.gpioPins.fanPin, rpio.OUTPUT, rpio.LOW);
       }
       if (this.config.gpioPins.saunaDoorPin !== undefined) {
-        rpio.open(this.config.gpioPins.saunaDoorPin, rpio.INPUT, rpio.PULL_DOWN);
+        rpio.open(
+          this.config.gpioPins.saunaDoorPin,
+          rpio.INPUT,
+          rpio.PULL_DOWN,
+        );
       }
       if (this.config.gpioPins.steamDoorPin !== undefined) {
-        rpio.open(this.config.gpioPins.steamDoorPin, rpio.INPUT, rpio.PULL_DOWN);
+        rpio.open(
+          this.config.gpioPins.steamDoorPin,
+          rpio.INPUT,
+          rpio.PULL_DOWN,
+        );
       }
     } catch (error) {
       this.platform.log.error('Failed to initialize GPIO pins:', error);
@@ -161,11 +191,14 @@ export class OpenSaunaAccessory {
   // Initialize the I2C bus with error handling and optional timeout
   private initializeI2C(): Promise<void> {
     if (!this.config.hasSteamI2C) {
-      this.platform.log.info('I2C initialization skipped as hasSteamI2C is set to false.');
+      this.platform.log.info(
+        'I2C initialization skipped as hasSteamI2C is set to false.',
+      );
       return Promise.resolve();
     }
 
-    return i2c.openPromisified(1)
+    return i2c
+      .openPromisified(1)
       .then((bus) => {
         this.i2cBus = bus;
         this.platform.log.info('I2C bus opened successfully.');
@@ -255,10 +288,13 @@ export class OpenSaunaAccessory {
 
     // Monitor temperatures, humidity, and door states
     this.monitorTemperatures();
-    if (this.config.hasSteamI2C){
+    if (this.config.hasSteamI2C) {
       this.monitorHumidity();
     }
-    if (!this.config.saunaOnWhileDoorOpen || !this.config.steamOnWhileDoorOpen ){
+    if (
+      !this.config.saunaOnWhileDoorOpen ||
+      !this.config.steamOnWhileDoorOpen
+    ) {
       this.monitorDoors();
     }
   }
@@ -402,25 +438,41 @@ export class OpenSaunaAccessory {
     );
   }
 
-  private handleStateSet(system: AuxSensorConfig['system'], value: CharacteristicValue) {
+  private handleStateSet(
+    system: AuxSensorConfig['system'],
+    value: CharacteristicValue,
+  ) {
     if (!system) {
-      this.platform.log.warn('System is null or undefined. Cannot handle state.');
+      this.platform.log.warn(
+        'System is null or undefined. Cannot handle state.',
+      );
       return;
     }
 
-    const isRunning = system === 'sauna' ? this.saunaRunning : this.steamRunning;
+    const isRunning =
+      system === 'sauna' ? this.saunaRunning : this.steamRunning;
     const service = this.accessory.getService(`${system}-thermostat`);
 
-    this.platform.log.info(`${system.charAt(0).toUpperCase() + system.slice(1)} Mode Request:`, value ? 'Heat' : 'Off');
+    this.platform.log.info(
+      `${system.charAt(0).toUpperCase() + system.slice(1)} Mode Request:`,
+      value ? 'Heat' : 'Off',
+    );
 
     if (service) {
       service
-        .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+        .getCharacteristic(
+          this.platform.Characteristic.TargetHeatingCoolingState,
+        )
         .updateValue(value);
 
-      if (value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
+      if (
+        value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT
+      ) {
         if (!isRunning) {
-          this.platform.log.info(`${system.charAt(0).toUpperCase() + system.slice(1)} Mode Changed: Heat`);
+          this.platform.log.info(
+            `${system.charAt(0).toUpperCase() + system.slice(1)
+            } Mode Changed: Heat`,
+          );
           if (system === 'sauna') {
             this.saunaRunning = true;
           } else {
@@ -428,15 +480,25 @@ export class OpenSaunaAccessory {
           }
           service
             .getCharacteristic(this.platform.Characteristic.TargetTemperature)
-            .updateValue(system === 'sauna' ? this.lastSaunaTargetTemperature : this.lastSteamTargetTemperature); // Restore last target temperature
+            .updateValue(
+              system === 'sauna'
+                ? this.lastSaunaTargetTemperature
+                : this.lastSteamTargetTemperature,
+            ); // Restore last target temperature
 
           this.startSystem(
             system,
-            system === 'sauna' ? this.config.gpioPins.saunaPowerPins : this.config.gpioPins.steamPowerPins,
-            system === 'sauna' ? this.config.saunaTimeout : this.config.steamTimeout,
+            system === 'sauna'
+              ? this.config.gpioPins.saunaPowerPins
+              : this.config.gpioPins.steamPowerPins,
+            system === 'sauna'
+              ? this.config.saunaTimeout
+              : this.config.steamTimeout,
           );
         }
-      } else if (value === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
+      } else if (
+        value === this.platform.Characteristic.TargetHeatingCoolingState.OFF
+      ) {
         if (isRunning) {
           this.platform.log.info(`Turning ${system} to OFF mode.`);
           if (system === 'sauna') {
@@ -444,7 +506,12 @@ export class OpenSaunaAccessory {
           } else {
             this.steamRunning = false;
           }
-          this.stopSystem(system, system === 'sauna' ? this.config.gpioPins.saunaPowerPins : this.config.gpioPins.steamPowerPins);
+          this.stopSystem(
+            system,
+            system === 'sauna'
+              ? this.config.gpioPins.saunaPowerPins
+              : this.config.gpioPins.steamPowerPins,
+          );
         }
       } else {
         this.platform.log.warn('Unexpected mode:', value);
@@ -452,12 +519,21 @@ export class OpenSaunaAccessory {
     }
   }
 
-  private handleTemperatureSet(system: AuxSensorConfig['system'], value: CharacteristicValue) {
+  private handleTemperatureSet(
+    system: AuxSensorConfig['system'],
+    value: CharacteristicValue,
+  ) {
     if (!system) {
-      this.platform.log.warn('System is null or undefined. Cannot handle state.');
+      this.platform.log.warn(
+        'System is null or undefined. Cannot handle state.',
+      );
       return;
     }
-    this.platform.log.info(`${system.charAt(0).toUpperCase() + system.slice(1)} Temperature Request:`, value);
+    this.platform.log.info(
+      `${system.charAt(0).toUpperCase() + system.slice(1)
+      } Temperature Request:`,
+      value,
+    );
 
     if (typeof value === 'number') {
       if (system === 'sauna') {
@@ -473,7 +549,10 @@ export class OpenSaunaAccessory {
         .getCharacteristic(this.platform.Characteristic.TargetTemperature)
         .updateValue(value);
 
-      this.platform.log.info(`${system.charAt(0).toUpperCase() + system.slice(1)} Target Updated: ${value}`);
+      this.platform.log.info(
+        `${system.charAt(0).toUpperCase() + system.slice(1)
+        } Target Updated: ${value}`,
+      );
     }
   }
 
@@ -578,8 +657,10 @@ export class OpenSaunaAccessory {
                 // Reflect the invalid state in the HomeKit UI or log
                 this.reflectInvalidReadingState(sensor);
                 return;
-              } else{
-                this.platform.log.info(`[Temp] ${sensor.name}:${temperatureCelsius}`);
+              } else {
+                this.platform.log.info(
+                  `[Temp] ${sensor.name}:${temperatureCelsius}`,
+                );
               }
 
               // Update the HomeKit characteristic with the current temperature
@@ -699,15 +780,23 @@ export class OpenSaunaAccessory {
 
       // If in HEAT mode and temperature is below target, turn on the heater
       if (
-        currentMode === this.platform.Characteristic.TargetHeatingCoolingState.HEAT &&
+        currentMode ===
+        this.platform.Characteristic.TargetHeatingCoolingState.HEAT &&
         temperatureCelsius < this.lastSaunaTargetTemperature
       ) {
-        this.platform.log.info('Turning sauna ON due to HEAT mode and low temperature.');
+        this.platform.log.info(
+          'Turning sauna ON due to HEAT mode and low temperature.',
+        );
         this.saunaRunning = true;
         this.setPowerState(powerPins, true);
-      } else if (this.saunaRunning && temperatureCelsius >= this.lastSaunaTargetTemperature) {
+      } else if (
+        this.saunaRunning &&
+        temperatureCelsius >= this.lastSaunaTargetTemperature
+      ) {
         // Turn off heater if temperature reaches or exceeds target
-        this.platform.log.info('Turning sauna OFF due to target temperature being reached.');
+        this.platform.log.info(
+          'Turning sauna OFF due to target temperature being reached.',
+        );
         this.saunaRunning = false;
         this.setPowerState(powerPins, false);
       }

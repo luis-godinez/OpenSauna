@@ -34,13 +34,13 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
   }
 
   discoverDevices() {
+    this.log.info('Starting device discovery...');
     if (!isOpenSaunaConfig(this.config)) {
-      this.log.error(
-        'Invalid configuration for OpenSauna. Please check your config.json.',
-      );
+      this.log.error('Invalid configuration for OpenSauna. Please check your config.json.');
       return;
     }
 
+    this.log.info('Configuration validated, setting up devices...');
     const devices = this.config as OpenSaunaConfig;
 
     // Set default values for new settings if not provided
@@ -57,8 +57,9 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     devices.steamSafetyTemperature = devices.steamSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
     devices.controllerSafetyTemperature = devices.controllerSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 194 : 90);
 
-    // Add a single accessory with all configured services
+    this.log.info('Defaults applied, adding accessory...');
     this.addAccessory(devices);
+    this.log.info('Device discovery completed.');
   }
 
   private addAccessory(devices: OpenSaunaConfig) {
@@ -98,33 +99,28 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
 }
 
 function isOpenSaunaConfig(config: PlatformConfig): config is OpenSaunaConfig {
-  return (
-    typeof config.platform === 'string' &&
-    config.platform === PLATFORM_NAME &&
-    typeof config.name === 'string' &&
-    typeof config.hasSauna === 'boolean' &&
-    typeof config.hasSaunaSplitPhase === 'boolean' && // New property check
-    typeof config.hasSteam === 'boolean' &&
-    typeof config.hasSteamSplitPhase === 'boolean' && // New property check
-    typeof config.hasLight === 'boolean' &&
-    typeof config.hasFan === 'boolean' &&
-    typeof config.inverseSaunaDoor === 'boolean' && // New property check
-    typeof config.inverseSteamDoor === 'boolean' && // New property check
-    typeof config.temperatureUnitFahrenheit === 'boolean' && // New property check
-    config.gpioPins !== undefined &&
-    typeof config.gpioPins.saunaDoorPin === 'number' &&
-    typeof config.gpioPins.steamDoorPin === 'number' &&
-    config.auxSensors !== undefined &&
-    Array.isArray(config.auxSensors) &&
-    Array.isArray(config.gpioPins.saunaPowerPins) &&
-    Array.isArray(config.gpioPins.steamPowerPins) &&
-    typeof config.saunaOnWhileDoorOpen === 'boolean' &&
-    typeof config.steamOnWhileDoorOpen === 'boolean' &&
-    typeof config.saunaTimeout === 'number' &&
-    typeof config.steamTimeout === 'number' &&
-    typeof config.saunaMaxTemperature === 'number' &&
-    typeof config.steamMaxTemperature === 'number' &&
-    typeof config.steamMaxHumidity === 'number' &&
-    typeof config.controllerSafetyTemperature === 'number'
-  );
+  // Check if config is an object and if it has the required properties
+  if (typeof config !== 'object' || config === null) {
+    return false;
+  }
+
+  // Use TypeScript's type assertion to check if config fits OpenSaunaConfig
+  const requiredKeys: Array<keyof OpenSaunaConfig> = [
+    'platform', 'name', 'manufacturer', 'serial',
+    'hasSauna', 'hasSaunaSplitPhase', 'hasSteam', 'hasSteamI2C', 'hasSteamSplitPhase',
+    'hasLight', 'hasFan', 'inverseSaunaDoor', 'inverseSteamDoor', 'temperatureUnitFahrenheit',
+    'gpioPins', 'auxSensors', 'saunaOnWhileDoorOpen', 'steamOnWhileDoorOpen',
+    'saunaTimeout', 'steamTimeout', 'controllerSafetyTemperature', 'saunaMaxTemperature',
+    'saunaSafetyTemperature', 'steamMaxTemperature', 'steamSafetyTemperature', 'steamMaxHumidity',
+  ];
+
+  // Validate that all required keys are present
+  for (const key of requiredKeys) {
+    if (!(key in config)) {
+      return false;
+    }
+  }
+
+  // Further validation can be done if necessary, but if all keys exist, it's likely valid
+  return true;
 }
