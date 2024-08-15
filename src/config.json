@@ -8,9 +8,10 @@
       "hasSauna": true,
       "hasSaunaSplitPhase": true,
       "hasSteam": true,
+      "hasSteamI2C":false,
       "hasSteamSplitPhase": false,
-      "hasLight": true,
-      "hasFan": true,
+      "hasLight": false,
+      "hasFan": false,
       "inverseSaunaDoor": false,
       "inverseSteamDoor": false,
       "temperatureUnitFahrenheit": false,
@@ -42,16 +43,16 @@
           "control": false
         }
       ],
-      "saunaOnWhileDoorOpen": true,
-      "steamOnWhileDoorOpen": true,
+      "saunaOnWhileDoorOpen": false,
+      "steamOnWhileDoorOpen": false,
       "saunaTimeout": 60,
       "steamTimeout": 60,
+      "controllerSafetyTemperature": 90,
       "saunaMaxTemperature": 100,
-      "steamMaxTemperature": 60,
-      "steamMaxHumidity": 60,
       "saunaSafetyTemperature": 120,
+      "steamMaxTemperature": 60,
       "steamSafetyTemperature": 60,
-      "controllerSafetyTemperature": 90
+      "steamMaxHumidity": 60
     }
   ]
 }

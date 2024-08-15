@@ -9,6 +9,7 @@ export interface OpenSaunaConfig {
   hasSauna: boolean; // Indicates if the sauna is present
   hasSaunaSplitPhase: boolean; // Indicates if the sauna uses split phase power
   hasSteam: boolean; // Indicates if the steam room is present
+  hasSteamI2C: boolean; // Indicates if the I2C sensor the  I2C humidity/temp sensor is available
   hasSteamSplitPhase: boolean; // Indicates if the steam room uses split phase power
   hasLight: boolean; // Indicates if a light control is available
   hasFan: boolean; // Indicates if a fan control is available
@@ -21,21 +22,21 @@ export interface OpenSaunaConfig {
   steamOnWhileDoorOpen: boolean; // Allows the steam room to be on while the door is open
   saunaTimeout: number; // Maximum runtime for the sauna in minutes before auto-shutdown
   steamTimeout: number; // Maximum runtime for the steam room in minutes before auto-shutdown
-  saunaMaxTemperature: number; // Maximum user-configurable temperature for the sauna in degrees
-  steamMaxTemperature: number; // Maximum user-configurable temperature for the steam room in degrees
-  steamMaxHumidity: number; // Maximum user-configurable humidity for the steam room in percent
-  saunaSafetyTemperature: number; // Safety limit for sauna temperature in degrees (hard-coded)
-  steamSafetyTemperature: number; // Safety limit for steam room temperature in degrees (hard-coded)
   controllerSafetyTemperature: number; // Safety limit for the controller board temperature in degrees (hard-coded)
+  saunaMaxTemperature: number; // Maximum user-configurable temperature for the sauna in degrees
+  saunaSafetyTemperature: number; // Safety limit for sauna temperature in degrees (hard-coded)
+  steamMaxTemperature: number; // Maximum user-configurable temperature for the steam room in degrees
+  steamSafetyTemperature: number; // Safety limit for steam room temperature in degrees (hard-coded)
+  steamMaxHumidity: number; // Maximum user-configurable humidity for the steam room in percent
 }
 
 export interface GpioConfig {
   saunaPowerPins: number[]; // GPIO pins for sauna power control
   steamPowerPins: number[]; // GPIO pins for steam room power control
-  lightPin?: number; // GPIO pin for light control (optional)
-  fanPin?: number; // GPIO pin for fan control (optional)
-  saunaDoorPin?: number; // GPIO pin for sauna door sensor (optional)
-  steamDoorPin?: number; // GPIO pin for steam door sensor (optional)
+  lightPin: number; // GPIO pin for light control (optional)
+  fanPin: number; // GPIO pin for fan control (optional)
+  saunaDoorPin: number; // GPIO pin for sauna door sensor (optional)
+  steamDoorPin: number; // GPIO pin for steam door sensor (optional)
 }
 
 export interface AuxSensorConfig {

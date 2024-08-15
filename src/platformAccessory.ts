@@ -72,18 +72,20 @@ export class OpenSaunaAccessory {
     });
 
     // Initialize I2C Bus
-    i2c
-      .openPromisified(1)
-      .then((bus) => {
-        this.i2cBus = bus;
-      })
-      .catch((err: unknown) => {
-        if (err instanceof Error) {
-          this.platform.log.error('Failed to open I2C bus:', err.message);
-        } else {
-          this.platform.log.error('Failed to open I2C bus:', String(err));
-        }
-      });
+    if (this.config.hasSteamI2C){
+      i2c
+        .openPromisified(1)
+        .then((bus) => {
+          this.i2cBus = bus;
+        })
+        .catch((err: unknown) => {
+          if (err instanceof Error) {
+            this.platform.log.error('Failed to open I2C bus:', err.message);
+          } else {
+            this.platform.log.error('Failed to open I2C bus:', String(err));
+          }
+        });
+    }
 
     // Initialize all necessary services based on the config
     this.setupAccessory();
@@ -241,8 +243,13 @@ export class OpenSaunaAccessory {
 
     // Monitor temperatures, humidity, and door states
     this.monitorTemperatures();
-    this.monitorHumidity();
-    this.monitorDoors();
+    if (this.config.hasSteamI2C){
+      this.monitorHumidity();
+    }
+    if (!this.config.saunaOnWhileDoorOpen || !this.config.steamOnWhileDoorOpen ){
+      this.monitorDoors();
+    }
+
     process.on('exit', this.cleanupGpioPins.bind(this));
   }
 
