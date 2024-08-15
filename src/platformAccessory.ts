@@ -1,107 +1,77 @@
-// Import necessary modules
+// platformAccessory.ts
+
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { OpenSaunaPlatform } from './platform.js';
-import rpio from 'rpio'; // Updated import to use rpio
+import rpio from 'rpio';
 import {
   openMcp3008,
   McpInterface,
   McpReading,
   EightChannels,
 } from 'mcp-spi-adc';
-import i2c from 'i2c-bus'; // Assume types declared in typings.d.ts
+import i2c from 'i2c-bus';
 import { OpenSaunaConfig, AuxSensorConfig } from './settings.js';
 
 export class OpenSaunaAccessory {
-  private auxTemperatureSensors: Map<string, Service> = new Map(); // Define auxTemperatureSensors
-  private steamHumiditySensor?: Service; // Define steamHumiditySensor
-  private steamTemperatureSensor?: Service; // Define steamTemperatureSensor
+  private auxTemperatureSensors: Map<string, Service> = new Map();
+  private steamHumiditySensor?: Service;
+  private steamTemperatureSensor?: Service;
   private saunaRunning: boolean = false;
-  private lastSaunaTargetTemperature: number = 0; // Store last set target temperature
-
+  private lastSaunaTargetTemperature: number = 0;
   private steamRunning: boolean = false;
-  private lastSteamTargetTemperature: number = 0; // Store last set target temperature
-
-  private lightPowerSwitch?: Service; // Define lightPowerSwitch
-  private fanPowerSwitch?: Service; // Define fanPowerSwitch
-
-  private adc!: McpInterface; // Define adc as McpInterface
-  private i2cBus!: i2c.PromisifiedBus; // Define i2cBus
-
-  private saunaTimer: NodeJS.Timeout | null = null; // Timer for sauna power off
-  private steamTimer: NodeJS.Timeout | null = null; // Timer for sauna power off
-  private temperatureIntervals: NodeJS.Timeout[] = []; // Track temperature intervals
-  private humidityInterval: NodeJS.Timeout | null = null; // Track humidity interval
+  private lastSteamTargetTemperature: number = 0;
+  private lightPowerSwitch?: Service;
+  private fanPowerSwitch?: Service;
+  private adc!: McpInterface;
+  private i2cBus!: i2c.PromisifiedBus;
+  private saunaTimer: NodeJS.Timeout | null = null;
+  private steamTimer: NodeJS.Timeout | null = null;
+  private temperatureIntervals: NodeJS.Timeout[] = [];
+  private humidityInterval: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly platform: OpenSaunaPlatform,
     private readonly accessory: PlatformAccessory,
     private readonly config: OpenSaunaConfig,
   ) {
-    // Set the accessory information
     this.accessory
       .getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(
-        this.platform.Characteristic.Manufacturer,
-        `${this.config.manufacturer}`,
-      )
-      .setCharacteristic(
-        this.platform.Characteristic.Name,
-        `${this.config.name}`,
-      )
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, `${this.config.manufacturer}`)
+      .setCharacteristic(this.platform.Characteristic.Name, `${this.config.name}`)
       .setCharacteristic(this.platform.Characteristic.Model, 'OpenSauna')
-      .setCharacteristic(
-        this.platform.Characteristic.SerialNumber,
-        `${this.config.serial}`,
-      );
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, `${this.config.serial}`);
 
     // Initialize RPIO with desired options
-    rpio.init({
-      mapping: 'gpio', // Use GPIO pin numbering
+    rpio.init({ mapping: 'gpio' });
+
+    // Initialize peripherals with error handling and timeouts
+    this.initializePeripherals().then(() => {
+      this.setupAccessory();
+    }).catch((error) => {
+      this.platform.log.error('Initialization failed:', error);
+      this.cleanupGpioPins(); // Ensure GPIO pins are cleaned up on error
     });
 
-    // Validate sensor configuration
-    this.validateSensorConfiguration();
-
-    // Initialize the ADC using openMcp3008
-    openMcp3008(0, { speedHz: 1350000 }, (error: string) => {
-      if (error) {
-        this.platform.log.error('Failed to open ADC:', error);
-      } else {
-        this.platform.log.info('ADC opened successfully.');
-      }
-    });
-
-    // Initialize I2C Bus
-    if (this.config.hasSteamI2C){
-      i2c
-        .openPromisified(1)
-        .then((bus) => {
-          this.i2cBus = bus;
-        })
-        .catch((err: unknown) => {
-          if (err instanceof Error) {
-            this.platform.log.error('Failed to open I2C bus:', err.message);
-          } else {
-            this.platform.log.error('Failed to open I2C bus:', String(err));
-          }
-        });
-    }
-
-    // Initialize all necessary services based on the config
-    this.setupAccessory();
-
-    // Ensure GPIO pins are cleaned up on process exit
     process.on('exit', this.cleanupGpioPins.bind(this));
     process.on('SIGINT', () => {
-      // Handle Ctrl+C signal
       this.cleanupGpioPins();
       process.exit();
     });
     process.on('SIGTERM', () => {
-      // Handle termination signal
       this.cleanupGpioPins();
       process.exit();
     });
+  }
+
+  // Initialize all hardware peripherals asynchronously with error handling
+  private async initializePeripherals() {
+    this.validateSensorConfiguration();
+
+    await Promise.all([
+      this.initializeAdc(),
+      this.initializeI2C(),
+      this.initializeGpioPinsAsync(),
+    ]);
   }
 
   private validateSensorConfiguration() {
@@ -118,32 +88,35 @@ export class OpenSaunaAccessory {
 
     for (const system in systemCount) {
       if (systemCount[system] > 1) {
-        throw new Error(
-          `Only one NTC sensor is allowed for the ${system} system.`,
-        );
+        throw new Error(`Only one NTC sensor is allowed for the ${system} system.`);
       }
     }
   }
 
-  // Initialize GPIO pins during setup
-  private initializeGpioPins() {
-    this.config.gpioPins.saunaPowerPins.forEach((pin) =>
-      rpio.open(pin, rpio.OUTPUT, rpio.LOW),
-    );
-    this.config.gpioPins.steamPowerPins.forEach((pin) =>
-      rpio.open(pin, rpio.OUTPUT, rpio.LOW),
-    );
-    if (this.config.gpioPins.lightPin !== undefined) {
-      rpio.open(this.config.gpioPins.lightPin, rpio.OUTPUT, rpio.LOW);
-    }
-    if (this.config.gpioPins.fanPin !== undefined) {
-      rpio.open(this.config.gpioPins.fanPin, rpio.OUTPUT, rpio.LOW);
-    }
-    if (this.config.gpioPins.saunaDoorPin !== undefined) {
-      rpio.open(this.config.gpioPins.saunaDoorPin, rpio.INPUT, rpio.PULL_DOWN); // Or PULL_UP, as needed
-    }
-    if (this.config.gpioPins.steamDoorPin !== undefined) {
-      rpio.open(this.config.gpioPins.steamDoorPin, rpio.INPUT, rpio.PULL_DOWN); // Or PULL_DOWN, as needed
+  // Initialize GPIO pins asynchronously with error handling
+  private async initializeGpioPinsAsync() {
+    try {
+      this.config.gpioPins.saunaPowerPins.forEach((pin) =>
+        rpio.open(pin, rpio.OUTPUT, rpio.LOW),
+      );
+      this.config.gpioPins.steamPowerPins.forEach((pin) =>
+        rpio.open(pin, rpio.OUTPUT, rpio.LOW),
+      );
+      if (this.config.gpioPins.lightPin !== undefined) {
+        rpio.open(this.config.gpioPins.lightPin, rpio.OUTPUT, rpio.LOW);
+      }
+      if (this.config.gpioPins.fanPin !== undefined) {
+        rpio.open(this.config.gpioPins.fanPin, rpio.OUTPUT, rpio.LOW);
+      }
+      if (this.config.gpioPins.saunaDoorPin !== undefined) {
+        rpio.open(this.config.gpioPins.saunaDoorPin, rpio.INPUT, rpio.PULL_DOWN);
+      }
+      if (this.config.gpioPins.steamDoorPin !== undefined) {
+        rpio.open(this.config.gpioPins.steamDoorPin, rpio.INPUT, rpio.PULL_DOWN);
+      }
+    } catch (error) {
+      this.platform.log.error('Failed to initialize GPIO pins:', error);
+      throw error;
     }
   }
 
@@ -165,8 +138,47 @@ export class OpenSaunaAccessory {
     }
   }
 
+  // Initialize the ADC with a timeout and error handling
+  private initializeAdc(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('ADC initialization timeout'));
+      }, 5000); // 5-second timeout
+
+      openMcp3008(0, { speedHz: 1350000 }, (error) => {
+        clearTimeout(timeout);
+        if (error) {
+          this.platform.log.error('Failed to open ADC:', error);
+          reject(error);
+        } else {
+          this.platform.log.info('ADC opened successfully.');
+          resolve();
+        }
+      });
+    });
+  }
+
+  // Initialize the I2C bus with error handling and optional timeout
+  private initializeI2C(): Promise<void> {
+    if (!this.config.hasSteamI2C) {
+      this.platform.log.info('I2C initialization skipped as hasSteamI2C is set to false.');
+      return Promise.resolve();
+    }
+
+    return i2c.openPromisified(1)
+      .then((bus) => {
+        this.i2cBus = bus;
+        this.platform.log.info('I2C bus opened successfully.');
+      })
+      .catch((err) => {
+        this.platform.log.error('Failed to open I2C bus:', err);
+        throw err;
+      });
+  }
+
   private setupAccessory() {
-    this.initializeGpioPins();
+    // GPIO initialization is already done in initializeGpioPinsAsync
+    // Setup other services and monitoring
 
     // Setup thermostats based on config
     if (this.config.hasSauna) {
@@ -249,8 +261,6 @@ export class OpenSaunaAccessory {
     if (!this.config.saunaOnWhileDoorOpen || !this.config.steamOnWhileDoorOpen ){
       this.monitorDoors();
     }
-
-    process.on('exit', this.cleanupGpioPins.bind(this));
   }
 
   // Set the name characteristic for the power switch
