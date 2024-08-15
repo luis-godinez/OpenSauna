@@ -168,10 +168,10 @@ export function createTestPlatformAndAccessory() {
       if (currentLevel === expectedLevel) {
         if (doorOpen && !saunaConfig.saunaOnWhileDoorOpen) {
           console.log('Door open, heat disabled');
-          saunaAccessory['handleSaunaStateSet'](0);
+          saunaAccessory['handleStateSet']('sauna',0);
         } else if (!doorOpen && !saunaConfig.saunaOnWhileDoorOpen) {
           console.log('Door closed, heat enabled');
-          saunaAccessory['handleSaunaStateSet'](1);
+          saunaAccessory['handleStateSet']('sauna',1);
         }
       }
     }

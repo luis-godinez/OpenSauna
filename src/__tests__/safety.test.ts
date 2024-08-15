@@ -76,15 +76,18 @@ describe('OpenSaunaAccessory Safety Test', () => {
   });
 
   test('no temperature: no power if no signal from any temperature sensor', () => {
+    saunaAccessory['saunaRunning'] = true; 
+
     // Simulate no signal
     saunaAccessory['handleTemperatureControl'](saunaConfig.auxSensors[1], NaN);
-
     saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Ensure sauna power is off
     });
   });
 
   test('invalid temperature: no power if invalid temperature due to disconnected NTC', () => {
+    saunaAccessory['saunaRunning'] = true; 
+    
     // Simulate no signal
     saunaAccessory['handleTemperatureControl'](saunaConfig.auxSensors[1], -50);
 

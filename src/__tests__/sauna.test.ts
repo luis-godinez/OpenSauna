@@ -25,7 +25,7 @@ describe('OpenSaunaAccessory Sauna Test', () => {
   it('should turn on sauna when switching to HEAT mode and sauna is not running', () => {
     saunaAccessory['saunaRunning'] = false; // Ensure sauna is off
 
-    (saunaAccessory as any).handleSaunaStateSet(platform.Characteristic.TargetHeatingCoolingState.HEAT);
+    (saunaAccessory as any).handleStateSet('sauna',platform.Characteristic.TargetHeatingCoolingState.HEAT);
 
     saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Sauna should turn on
@@ -35,7 +35,7 @@ describe('OpenSaunaAccessory Sauna Test', () => {
   it('should not turn on sauna if already running when switching to HEAT mode', () => {
     saunaAccessory['saunaRunning'] = true; // Mock sauna already running
 
-    (saunaAccessory as any).handleSaunaStateSet(platform.Characteristic.TargetHeatingCoolingState.HEAT);
+    (saunaAccessory as any).handleStateSet('sauna',platform.Characteristic.TargetHeatingCoolingState.HEAT);
 
     expect(mockDigitalWrite).not.toHaveBeenCalled(); // No GPIO change expected
   });
@@ -43,7 +43,7 @@ describe('OpenSaunaAccessory Sauna Test', () => {
   it('should not turn off sauna if already off when switching to OFF mode', () => {
     saunaAccessory['saunaRunning'] = false; // Sauna is off
 
-    (saunaAccessory as any).handleSaunaStateSet(platform.Characteristic.TargetHeatingCoolingState.OFF);
+    (saunaAccessory as any).handleStateSet('sauna',platform.Characteristic.TargetHeatingCoolingState.OFF);
 
     expect(mockDigitalWrite).not.toHaveBeenCalled(); // No GPIO change expected
   });
@@ -53,23 +53,23 @@ describe('OpenSaunaAccessory Sauna Test', () => {
 
     const thermostatService = accessory.getService('sauna-thermostat');
     thermostatService?.getCharacteristic(platform.Characteristic.TargetTemperature).updateValue(0);  // Initial temperature is 0
-    (saunaAccessory as any).handleSaunaStateSet(1); // Turn sauna power on
+    (saunaAccessory as any).handleStateSet('sauna',1); // Turn sauna power on
 
     saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Sauna should turn on
     });
-    (saunaAccessory as any).handleSaunaTemperatureSet(75); // Set temperature
+    (saunaAccessory as any).handleTemperatureSet('sauna',75); // Set temperature
 
     expect(thermostatService?.getCharacteristic(platform.Characteristic.TargetTemperature).value).toBe(75); // Verify temperature
 
 
-    (saunaAccessory as any).handleSaunaStateSet(0); // Turn sauna power off
+    (saunaAccessory as any).handleStateSet('sauna',0); // Turn sauna power off
 
     saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Sauna should turn off
     });
 
-    (saunaAccessory as any).handleSaunaStateSet(1); // Turn sauna power on
+    (saunaAccessory as any).handleStateSet('sauna',1); // Turn sauna power on
     saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Sauna should turn on
     });
@@ -83,7 +83,7 @@ describe('OpenSaunaAccessory Sauna Test', () => {
     saunaConfig.saunaOnWhileDoorOpen = true;
     saunaAccessory['saunaRunning'] = false; // Sauna is not running
 
-    (saunaAccessory as any).handleSaunaStateSet(1); // Turn sauna power on
+    (saunaAccessory as any).handleStateSet('sauna',1); // Turn sauna power on
 
     (saunaAccessory as any).handleDoorStateChange('sauna', true);
 
@@ -131,7 +131,7 @@ describe('OpenSaunaAccessory Sauna Test', () => {
   it('should turn off sauna after saunaTimeout period', () => {
     jest.useFakeTimers();
 
-    (saunaAccessory as any).handleSaunaStateSet(1); // Start sauna
+    (saunaAccessory as any).handleStateSet('sauna',1); // Start sauna
 
     jest.advanceTimersByTime(saunaConfig.saunaTimeout * 1000);
 
@@ -154,7 +154,7 @@ describe('OpenSaunaAccessory Sauna Test', () => {
       callback(null, { value: adcMockValue });
     });
 
-    (saunaAccessory as any).handleSaunaStateSet(1); // Start sauna
+    (saunaAccessory as any).handleStateSet('sauna',1); // Start sauna
 
     jest.advanceTimersByTime(5000);
 
