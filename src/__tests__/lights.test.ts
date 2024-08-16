@@ -3,7 +3,7 @@ import { mockDigitalWrite } from '../jest.setup';
 
 import { OpenSaunaAccessory } from '../platformAccessory';
 import { OpenSaunaPlatform } from '../platform';
-import { PlatformAccessory} from 'homebridge';
+import { PlatformAccessory } from 'homebridge';
 
 describe('OpenSaunaAccessory Lights Test', () => {
   let platform: OpenSaunaPlatform;
@@ -11,16 +11,18 @@ describe('OpenSaunaAccessory Lights Test', () => {
   let saunaAccessory: OpenSaunaAccessory;
 
   beforeEach(() => {
+    jest.useFakeTimers();  // Enable fake timers for this test suite
     jest.clearAllMocks();
-
-    // Use the setup function to create instances
     ({ platform, accessory, saunaAccessory } = createTestPlatformAndAccessory());
   });
 
   afterEach(() => {
-    // Ensure cleanup of timers and intervals
-    (saunaAccessory as OpenSaunaAccessory).clearIntervalsAndTimeouts();
-    jest.clearAllTimers();
+    saunaAccessory.clearIntervalsAndTimeouts(); // Ensure all timers are cleared
+    jest.runAllTimers(); // Run and clear any pending timers
+    jest.clearAllTimers(); // Clear any remaining timers
+    process.removeAllListeners('exit');
+    process.removeAllListeners('SIGINT');
+    process.removeAllListeners('SIGTERM');
   });
 
   test('should turn on the light when lightPowerSwitch is set to true', () => {

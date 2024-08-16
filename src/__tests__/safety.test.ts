@@ -11,16 +11,18 @@ describe('OpenSaunaAccessory Safety Test', () => {
   let saunaAccessory: OpenSaunaAccessory;
 
   beforeEach(() => {
+    jest.useFakeTimers();  // Enable fake timers for this test suite
     jest.clearAllMocks();
-
-    // Use the setup function to create instances
     ({ platform, accessory, saunaAccessory } = createTestPlatformAndAccessory());
   });
 
   afterEach(() => {
-    // Ensure cleanup of timers and intervals
-    (saunaAccessory as OpenSaunaAccessory).clearIntervalsAndTimeouts();
-    jest.clearAllTimers();
+    saunaAccessory.clearIntervalsAndTimeouts(); // Ensure all timers are cleared
+    jest.runAllTimers(); // Run and clear any pending timers
+    jest.clearAllTimers(); // Clear any remaining timers
+    process.removeAllListeners('exit');
+    process.removeAllListeners('SIGINT');
+    process.removeAllListeners('SIGTERM');
   });
 
   test('controller overheat: turn off all relays and flash lights if PCB temperature exceeds safety limit', () => {

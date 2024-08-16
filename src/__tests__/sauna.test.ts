@@ -10,13 +10,15 @@ describe('OpenSaunaAccessory Sauna Test', () => {
   let saunaAccessory: OpenSaunaAccessory;
 
   beforeEach(() => {
+    jest.useFakeTimers();  // Enable fake timers for this test suite
     jest.clearAllMocks();
     ({ platform, accessory, saunaAccessory } = createTestPlatformAndAccessory());
   });
 
   afterEach(() => {
-    saunaAccessory.clearIntervalsAndTimeouts();
-    jest.clearAllTimers();
+    saunaAccessory.clearIntervalsAndTimeouts(); // Ensure all timers are cleared
+    jest.runAllTimers(); // Run and clear any pending timers
+    jest.clearAllTimers(); // Clear any remaining timers
     process.removeAllListeners('exit');
     process.removeAllListeners('SIGINT');
     process.removeAllListeners('SIGTERM');
@@ -129,7 +131,13 @@ describe('OpenSaunaAccessory Sauna Test', () => {
   });
 
   it('should turn off sauna after saunaTimeout period', () => {
-    jest.useFakeTimers();
+    const highTemperature = saunaConfig.saunaMaxTemperature - 5;
+    mockDigitalWrite.mockClear();
+  
+    // Mock the ADC read function to simulate a high temperature reading
+    (saunaAccessory as any).adc.read = jest.fn((callback) => {
+      callback(null, { value: highTemperature });
+    });
 
     (saunaAccessory as any).handleStateSet('sauna',1); // Start sauna
 
@@ -138,32 +146,29 @@ describe('OpenSaunaAccessory Sauna Test', () => {
     saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Sauna should turn off after timeout
     });
-
-    jest.useRealTimers();
   });
 
   it('should turn off sauna if temperature exceeds maxTemperature', () => {
-    jest.useFakeTimers();
-
     const highTemperature = saunaConfig.saunaMaxTemperature + 5;
     mockDigitalWrite.mockClear();
-
-    const adcMockValue = (highTemperature + 0.5) / 3.3 / 100;
-
-    (saunaAccessory as any).adc.read = jest.fn((_, callback) => {
-      callback(null, { value: adcMockValue });
+  
+    // Mock the ADC read function to simulate a high temperature reading
+    (saunaAccessory as any).adc.read = jest.fn((callback) => {
+      callback(null, { value: highTemperature });
     });
-
-    (saunaAccessory as any).handleStateSet('sauna',1); // Start sauna
-
+  
+    // Start the sauna
+    (saunaAccessory as any).handleStateSet('sauna', platform.Characteristic.TargetHeatingCoolingState.HEAT);
+  
+    // Advance timers to simulate some time passing
     jest.advanceTimersByTime(5000);
-
+  
+    // Handle the high temperature scenario
     (saunaAccessory as any).handleTemperatureControl(saunaConfig.auxSensors[1], highTemperature);
-
+  
+    // Expect that the sauna was turned off due to the high temperature
     saunaConfig.gpioPins.saunaPowerPins.forEach((pin: number) => {
-      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Sauna should turn off due to high temperature
+      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Sauna should turn off
     });
-
-    jest.useRealTimers();
   });
 });
