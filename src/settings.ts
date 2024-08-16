@@ -44,4 +44,6 @@ export interface AuxSensorConfig {
   channel: number; // ADC channel number associated with the sensor
   system: 'sauna' | 'steam' | 'controller' | null; // The sensor to system association, or null if not associated
   control: boolean; // Whether the sensor affects control logic (e.g., turns off power if overheating)
+  resistanceAt25C: number; // NTC resistance in Ohms @ 25°C
+  bValue: number; // NTC beta value
 }

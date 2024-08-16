@@ -640,7 +640,7 @@ export class OpenSaunaAccessory {
               }
 
               // Convert the ADC reading to a temperature value
-              const temperatureCelsius = (reading.value * 3.3 - 0.5) * 100;
+              const temperatureCelsius = this.calculateTemperature(reading.value, sensor.resistanceAt25C, sensor.bValue);
               const displayTemperature = this.config.temperatureUnitFahrenheit
                 ? this.convertToFahrenheit(temperatureCelsius)
                 : temperatureCelsius;
@@ -988,6 +988,24 @@ export class OpenSaunaAccessory {
         }
       },
     );
+  }
+
+  private calculateTemperature(adcValue: number, resistanceAt25C: number, bValue: number): number {
+    const pullUpResistor = 10000; // 10k ohm pull-up resistor
+
+    // Calculate the resistance of the thermistor based on the ADC value
+    let resistance = (1023 / adcValue) - 1;
+    resistance = pullUpResistor / resistance;
+
+    // Apply the Steinhart-Hart equation
+    let steinhart = resistance / resistanceAt25C; // (R/Ro)
+    steinhart = Math.log(steinhart); // ln(R/Ro)
+    steinhart /= bValue; // 1/B * ln(R/Ro)
+    steinhart += 1.0 / (25 + 273.15); // + (1/To)
+    steinhart = 1.0 / steinhart; // Invert
+    steinhart -= 273.15; // convert to Celsius
+
+    return steinhart;
   }
 
   // Utility function to convert Celsius to Fahrenheit

@@ -28,19 +28,25 @@
           "name": "PCB_NTC",
           "channel": 0,
           "system": "controller",
-          "control": false
+          "control": false,
+          "resistanceAt25C": 10000,
+          "bValue": 3977
         },
         {
           "name": "SAUNA_NTC",
           "channel": 1,
           "system": "sauna",
-          "control": true
+          "control": true,
+          "resistanceAt25C": 10000,
+          "bValue": 3950
         },
         {
           "name": "Outside",
           "channel": 2,
           "system": null,
-          "control": false
+          "control": false,
+          "resistanceAt25C": 10000,
+          "bValue": 3950
         }
       ],
       "saunaOnWhileDoorOpen": false,
