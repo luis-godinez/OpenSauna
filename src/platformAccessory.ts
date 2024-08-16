@@ -438,19 +438,19 @@ export class OpenSaunaAccessory {
     );
   }
 
-  private handleStateSet(
+  private async handleStateSet(
     system: AuxSensorConfig['system'],
     value: CharacteristicValue,
   ) {
     if (!system) {
-      this.platform.log.warn(
-        'System is null or undefined. Cannot handle state.',
-      );
+      this.platform.log.warn('System is null or undefined. Cannot handle state.');
       return;
     }
 
-    const isRunning =
-      system === 'sauna' ? this.saunaRunning : this.steamRunning;
+    const isRunning = system === 'sauna' ? this.saunaRunning : this.steamRunning;
+    const otherSystem = system === 'sauna' ? 'steam' : 'sauna';
+    const otherSystemRunning =
+      system === 'sauna' ? this.steamRunning : this.saunaRunning;
     const service = this.accessory.getService(`${system}-thermostat`);
 
     this.platform.log.info(
@@ -458,26 +458,31 @@ export class OpenSaunaAccessory {
       value ? 'Heat' : 'Off',
     );
 
+    if (otherSystemRunning && value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
+      this.platform.log.warn(
+        `${system.charAt(0).toUpperCase() + system.slice(1)} cannot be started because the other system is already running. Turning off ${otherSystem}.`,
+      );
+
+      // Turn off the other system before turning on the requested one
+      await this.turnOffOtherSystem(otherSystem);
+
+      this.platform.log.info(`${otherSystem} turned off. Starting ${system}.`);
+    }
+
     if (service) {
       service
-        .getCharacteristic(
-          this.platform.Characteristic.TargetHeatingCoolingState,
-        )
+        .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
         .updateValue(value);
 
-      if (
-        value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT
-      ) {
+      if (value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
         if (!isRunning) {
-          this.platform.log.info(
-            `${system.charAt(0).toUpperCase() + system.slice(1)
-            } Mode Changed: Heat`,
-          );
+          this.platform.log.info(`${system.charAt(0).toUpperCase() + system.slice(1)} Mode Changed: Heat`);
           if (system === 'sauna') {
             this.saunaRunning = true;
           } else {
             this.steamRunning = true;
           }
+          this.platform.log.info(`Sauna Running: ${this.saunaRunning}`);
           service
             .getCharacteristic(this.platform.Characteristic.TargetTemperature)
             .updateValue(
@@ -496,9 +501,7 @@ export class OpenSaunaAccessory {
               : this.config.steamTimeout,
           );
         }
-      } else if (
-        value === this.platform.Characteristic.TargetHeatingCoolingState.OFF
-      ) {
+      } else if (value === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
         if (isRunning) {
           this.platform.log.info(`Turning ${system} to OFF mode.`);
           if (system === 'sauna') {
@@ -506,6 +509,7 @@ export class OpenSaunaAccessory {
           } else {
             this.steamRunning = false;
           }
+          this.platform.log.info(`Sauna Running: ${this.saunaRunning}`);
           this.stopSystem(
             system,
             system === 'sauna'
@@ -517,6 +521,21 @@ export class OpenSaunaAccessory {
         this.platform.log.warn('Unexpected mode:', value);
       }
     }
+  }
+
+  private async turnOffOtherSystem(system: 'sauna' | 'steam') {
+    if (system === 'sauna' && this.saunaRunning) {
+      this.platform.log.info('Turning off sauna before starting steam.');
+      this.stopSystem('sauna', this.config.gpioPins.saunaPowerPins);
+      this.saunaRunning = false;
+    } else if (system === 'steam' && this.steamRunning) {
+      this.platform.log.info('Turning off steam before starting sauna.');
+      this.stopSystem('steam', this.config.gpioPins.steamPowerPins);
+      this.steamRunning = false;
+    }
+
+    // Add a short delay to ensure the system has fully turned off before proceeding
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
   private handleTemperatureSet(
@@ -907,6 +926,10 @@ export class OpenSaunaAccessory {
     if (this.saunaTimer) {
       clearTimeout(this.saunaTimer);
       this.saunaTimer = null;
+    }
+    if (this.steamTimer) {
+      clearTimeout(this.steamTimer);
+      this.steamTimer = null;
     }
     this.temperatureIntervals.forEach((interval) => clearInterval(interval));
     this.temperatureIntervals = [];
