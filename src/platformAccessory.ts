@@ -451,12 +451,22 @@ export class OpenSaunaAccessory {
 
     const isRunning =
       system === 'sauna' ? this.saunaRunning : this.steamRunning;
+    const otherSystemRunning =
+      system === 'sauna' ? this.steamRunning : this.saunaRunning;
     const service = this.accessory.getService(`${system}-thermostat`);
 
     this.platform.log.info(
       `${system.charAt(0).toUpperCase() + system.slice(1)} Mode Request:`,
       value ? 'Heat' : 'Off',
     );
+
+    if (otherSystemRunning && value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
+      this.platform.log.warn(
+        `${system.charAt(0).toUpperCase() + system.slice(1)
+        } cannot be started because the other system is already running.`,
+      );
+      return;
+    }
 
     if (service) {
       service
@@ -993,6 +1003,12 @@ export class OpenSaunaAccessory {
   private calculateTemperature(adcValue: number, resistanceAt25C: number, bValue: number): number {
     const pullUpResistor = 10000; // 10k ohm pull-up resistor
 
+    // Avoid division by zero and ensure adcValue is within a valid range
+    if (adcValue <= 0 || adcValue >= 1023) {
+      this.platform.log.warn(`Invalid adcValue: ${adcValue}`);
+      return NaN; // Return NaN to indicate an invalid temperature reading
+    }
+
     // Calculate the resistance of the thermistor based on the ADC value
     let resistance = (1023 / adcValue) - 1;
     resistance = pullUpResistor / resistance;
@@ -1004,6 +1020,12 @@ export class OpenSaunaAccessory {
     steinhart += 1.0 / (25 + 273.15); // + (1/To)
     steinhart = 1.0 / steinhart; // Invert
     steinhart -= 273.15; // convert to Celsius
+
+    // Ensure the temperature is a valid number before returning
+    if (isNaN(steinhart) || !isFinite(steinhart)) {
+      this.platform.log.warn(`Calculated temperature is invalid: ${steinhart}`);
+      return NaN;
+    }
 
     return steinhart;
   }
