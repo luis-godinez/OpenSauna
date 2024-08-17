@@ -13,8 +13,8 @@ export interface OpenSaunaConfig {
   hasSteamSplitPhase: boolean; // Indicates if the steam room uses split phase power
   hasLight: boolean; // Indicates if a light control is available
   hasFan: boolean; // Indicates if a fan control is available
-  inverseSaunaDoor: boolean; // If true, door sensor logic is inverted for the sauna
-  inverseSteamDoor: boolean; // If true, door sensor logic is inverted for the steam room
+  inverseSaunaDoor: boolean; // Door sensor setup: False for Normally-Closed, True for Normally-Open
+  inverseSteamDoor: boolean; // Door sensor setup: False for Normally-Closed, True for Normally-Open
   temperatureUnitFahrenheit: boolean; // If true, temperatures are in Fahrenheit; otherwise, Celsius
   gpioPins: GpioConfig; // Configuration of GPIO pins used in the system
   auxSensors: AuxSensorConfig[]; // Configuration of auxiliary sensors

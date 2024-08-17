@@ -28,6 +28,7 @@ export class OpenSaunaAccessory {
   private steamTimer: NodeJS.Timeout | null = null;
   private temperatureIntervals: NodeJS.Timeout[] = [];
   private humidityInterval: NodeJS.Timeout | null = null;
+  private doorPollRegistered: { [pin: number]: boolean } = {};
 
   constructor(
     private readonly platform: OpenSaunaPlatform,
@@ -286,16 +287,10 @@ export class OpenSaunaAccessory {
       this.addContactSensorService('Steam Door', 'steam-door');
     }
 
-    // Monitor temperatures, humidity, and door states
+    // Monitor temperatures and humidity
     this.monitorTemperatures();
     if (this.config.hasSteamI2C) {
       this.monitorHumidity();
-    }
-    if (
-      !this.config.saunaOnWhileDoorOpen ||
-      !this.config.steamOnWhileDoorOpen
-    ) {
-      this.monitorDoors();
     }
   }
 
@@ -500,6 +495,9 @@ export class OpenSaunaAccessory {
               ? this.config.saunaTimeout
               : this.config.steamTimeout,
           );
+
+          // Start monitoring the doors when the system is turned on
+          this.monitorDoors(system as 'sauna' | 'steam', true);
         }
       } else if (value === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
         if (isRunning) {
@@ -516,6 +514,9 @@ export class OpenSaunaAccessory {
               ? this.config.gpioPins.saunaPowerPins
               : this.config.gpioPins.steamPowerPins,
           );
+
+          // Stop monitoring the doors when the system is turned off
+          this.monitorDoors(system as 'sauna' | 'steam', true);
         }
       } else {
         this.platform.log.warn('Unexpected mode:', value);
@@ -939,78 +940,78 @@ export class OpenSaunaAccessory {
     }
   }
 
-  // Monitor door states using GPIO
-  private monitorDoors() {
-    const doorSensors = [
-      {
-        type: 'sauna',
-        pin: this.config.gpioPins.saunaDoorPin,
-        inverse: this.config.inverseSaunaDoor,
-        allowOnWhileOpen: this.config.saunaOnWhileDoorOpen,
-        powerPins: this.config.gpioPins.saunaPowerPins,
-      },
-      {
-        type: 'steam',
-        pin: this.config.gpioPins.steamDoorPin,
-        inverse: this.config.inverseSteamDoor,
-        allowOnWhileOpen: this.config.steamOnWhileDoorOpen,
-        powerPins: this.config.gpioPins.steamPowerPins,
-      },
-    ];
+  // Monitor or stop monitoring door states using GPIO
+  private monitorDoors(system: 'sauna' | 'steam', monitor: boolean) {
+    const doorSensor = system === 'sauna' ? this.config.gpioPins.saunaDoorPin : this.config.gpioPins.steamDoorPin;
+    const inverse = system === 'sauna' ? this.config.inverseSaunaDoor : this.config.inverseSteamDoor;
+    const allowOnWhileOpen = system === 'sauna' ? this.config.saunaOnWhileDoorOpen : this.config.steamOnWhileDoorOpen;
+    const powerPins = system === 'sauna' ? this.config.gpioPins.saunaPowerPins : this.config.gpioPins.steamPowerPins;
 
-    doorSensors.forEach(
-      ({ type, pin, inverse, allowOnWhileOpen, powerPins }) => {
-        if (pin !== undefined) {
-          try {
-            rpio.poll(pin, null); // Unregister existing poll to avoid duplicate listeners
-          } catch (error) {
-            this.platform.log.error(
-              `Error unregistering poll for pin ${pin}: ${error}`,
-            );
+    if (doorSensor !== undefined) {
+      if (monitor) {
+        try {
+        // Check if poll was registered
+          if (this.doorPollRegistered[doorSensor]) {
+            this.platform.log.info(`Poll for ${system} door already registered.`);
+            return;
           }
 
           rpio.poll(
-            pin,
+            doorSensor,
             () => {
               const doorOpen = inverse
-                ? rpio.read(pin) === 0
-                : rpio.read(pin) === 1;
+                ? rpio.read(doorSensor) === 0
+                : rpio.read(doorSensor) === 1;
               this.platform.log.info(
-                `${type.charAt(0).toUpperCase() + type.slice(1)} Door ${doorOpen ? 'Open' : 'Closed'
+                `${system.charAt(0).toUpperCase() + system.slice(1)} Door ${
+                  doorOpen ? 'Open' : 'Closed'
                 }`,
               );
 
-              const doorServiceName = `${type.charAt(0).toUpperCase() + type.slice(1)
-              } Door`;
+              const doorServiceName = `${system.charAt(0).toUpperCase() + system.slice(1)} Door`;
               const doorService = this.accessory.getService(doorServiceName);
 
               if (doorService) {
                 doorService.updateCharacteristic(
                   this.platform.Characteristic.ContactSensorState,
                   doorOpen
-                    ? this.platform.Characteristic.ContactSensorState
-                      .CONTACT_DETECTED
-                    : this.platform.Characteristic.ContactSensorState
-                      .CONTACT_NOT_DETECTED,
+                    ? this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+                    : this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
                 );
               }
               // Ensure the heater turns off if set to not operate with door open.
               if (doorOpen && !allowOnWhileOpen && powerPins) {
                 this.setPowerState(powerPins, false);
-                this.platform.log.warn(`${type} power off due to door open.`);
+                this.platform.log.warn(`${system} power off due to door open.`);
               } else if (!doorOpen && !allowOnWhileOpen && powerPins) {
-                // Ensure the heater is resumed only when it was initially turned off due to the door open state
+              // Ensure the heater is resumed only when it was initially turned off due to the door open state
                 this.setPowerState(powerPins, true);
-                this.platform.log.info(`${type} power resumed as door closed.`);
+                this.platform.log.info(`${system} power resumed as door closed.`);
               }
             },
             rpio.POLL_BOTH,
-          ); // Ensure both rising and falling edges are detected
-        } else {
-          this.platform.log.warn(`No door pin configured for ${type}`);
+          );
+
+          // Mark the poll as registered
+          this.doorPollRegistered[doorSensor] = true;
+        } catch (error) {
+          this.platform.log.error(`Error setting up poll for ${system} door: ${error}`);
         }
-      },
-    );
+      } else {
+      // Unregister the poll if it exists
+        if (this.doorPollRegistered[doorSensor]) {
+          try {
+            rpio.poll(doorSensor, null);
+            this.doorPollRegistered[doorSensor] = false;
+            this.platform.log.info(`Stopped monitoring ${system} door.`);
+          } catch (error) {
+            this.platform.log.error(`Error unregistering poll for ${system} door: ${error}`);
+          }
+        }
+      }
+    } else {
+      this.platform.log.warn(`No door pin configured for ${system}`);
+    }
   }
 
   private calculateTemperature(adcValue: number, resistanceAt25C: number, bValue: number): number {
