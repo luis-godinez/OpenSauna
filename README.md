@@ -8,7 +8,7 @@
 
 </span>
 
-OpenSauna is a Homebridge plugin that empowers users to control and monitor their sauna and/or steam rooms using Apple's HomeKit. This plugin integrates your sauna and steam room controls with HomeKit, providing an easy-to-use interface to manage temperature, humidity, lighting, and fans directly from your iOS devices.
+OpenSauna is a Homebridge plugin that allows users to control and monitor their sauna and/or steam room using Apple's HomeKit. This plugin integrates your sauna and steam room controls with HomeKit, providing an easy-to-use interface to manage temperature, humidity, lighting, and fans directly from your iOS devices.
 
 ## Purpose
 
@@ -33,55 +33,7 @@ OpenSauna is designed to provide a generic sauna controller that allows users to
 
 ## Configuration
 
-To configure the OpenSauna plugin, you can use the Homebridge UI or edit your `config.json` file directly. Below is an example configuration:
-
-```json
-{
-  "platform": "OpenSauna",
-  "name": "My Sauna System",
-  "hasSauna": true,
-  "hasSaunaSplitPhase": false,
-  "hasSteam": true,
-  "hasSteamSplitPhase": true,
-  "hasLight": true,
-  "hasFan": true,
-  "inverseSaunaDoor": false,
-  "inverseSteamDoor": false,
-  "temperatureUnitFahrenheit": false,
-  "gpioPins": {
-    "saunaPowerPins": [17, 18],
-    "steamPowerPins": [22, 23],
-    "lightPin": 24,
-    "fanPin": 25,
-    "saunaDoorPin": 26,
-    "steamDoorPin": 27
-  },
-  "auxSensors": [
-    {
-      "name": "PCB_NTC",
-      "channel": 0,
-      "system": "controller",
-      "control": false
-    },
-    {
-      "name": "SAUNA_NTC",
-      "channel": 1,
-      "system": "sauna",
-      "control": true
-    },
-    {
-      "name": "Outside",
-      "channel": 2,
-      "system": null,
-      "control": null
-    }
-  ],
-  "saunaOnWhileDoorOpen": true,
-  "steamOnWhileDoorOpen": false,
-  "saunaTimeout": 60,
-  "steamTimeout": 60
-}
-```
+To configure the OpenSauna plugin, you can use the Homebridge UI or edit your `config.json` file directly.
 
 ## Setup Development Environment
 
@@ -109,7 +61,7 @@ npm install
 
 Check the Homebridge logs for error messages or warnings. These can provide insight into any misconfigurations or runtime issues.
 
-For further assistance, you can visit the [Homebridge GitHub](https://github.com/homebridge/homebridge) for more resources or open an issue on the plugin's repository.
+For further assistance, you can visit the [OpenSauna GitHub](https://github.com/luis-godinez/opensauna) for more resources or open an issue on the plugin's repository.
 
 ## Examples and Use Cases
 
