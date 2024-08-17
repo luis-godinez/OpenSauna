@@ -2,19 +2,32 @@
   "pluginAlias": "OpenSauna",
   "pluginType": "platform",
   "singular": true,
+  "headerDisplay": "OpenSauna by Ungodly Design. Hardware available [here](https://ungodly.design/opensauna).",
   "schema": {
     "type": "object",
     "properties": {
+      "manufacturer": {
+        "type": "string",
+        "title": "Manufacturer",
+        "description": "Name of the manufacturer.",
+        "required": true
+      },
       "platform": {
         "type": "string",
         "title": "Platform Name",
-        "default": "OpenSauna",
-        "readOnly": true
+        "description": "Name of the platform.",
+        "required": true
       },
       "name": {
         "type": "string",
         "title": "Sauna System Name",
-        "description": "The name for the sauna system, displayed in Homebridge.",
+        "description": "Custom name for the sauna system.",
+        "required": true
+      },
+      "serial": {
+        "type": "string",
+        "title": "Serial Number",
+        "description": "Custom serial number for the sauna system.",
         "required": true
       },
       "hasSauna": {
@@ -32,7 +45,13 @@
       "hasSteam": {
         "type": "boolean",
         "title": "Enable Steam",
-        "description": "Indicates if the steam functionality is available.",
+        "description": "Indicates if the steam room functionality is available.",
+        "default": false
+      },
+      "hasSteamI2C": {
+        "type": "boolean",
+        "title": "Steam I2C Sensor",
+        "description": "Indicates if the I2C humidity/temp sensor is available.",
         "default": false
       },
       "hasSteamSplitPhase": {
@@ -109,13 +128,13 @@
             "type": "number",
             "title": "Sauna Door Sensor Pin",
             "description": "GPIO pin for sauna door sensor.",
-            "required": true
+            "default": null
           },
           "steamDoorPin": {
             "type": "number",
             "title": "Steam Door Sensor Pin",
             "description": "GPIO pin for steam door sensor.",
-            "required": true
+            "default": null
           }
         }
       },
@@ -138,22 +157,94 @@
               "description": "ADC channel for the auxiliary sensor.",
               "required": true
             },
-            "associatedSystem": {
+            "system": {
               "type": "string",
               "title": "Associated System",
               "description": "System this sensor is associated with.",
-              "enum": ["sauna", "steam"],
+              "enum": ["sauna", "steam", "controller", null],
               "default": null
             },
-            "impactControl": {
+            "control": {
               "type": "boolean",
               "title": "Impact Control",
               "description": "Whether this sensor impacts system control.",
               "default": false
+            },
+            "resistanceAt25C": {
+              "type": "number",
+              "title": "Resistance at 25°C",
+              "description": "NTC resistance in Ohms at 25°C.",
+              "required": true
+            },
+            "bValue": {
+              "type": "number",
+              "title": "B Value",
+              "description": "NTC beta value.",
+              "required": true
             }
           }
         },
         "default": []
+      },
+      "saunaOnWhileDoorOpen": {
+        "type": "boolean",
+        "title": "Sauna On While Door Open",
+        "description": "Allows the sauna to be on while the door is open.",
+        "default": false
+      },
+      "steamOnWhileDoorOpen": {
+        "type": "boolean",
+        "title": "Steam On While Door Open",
+        "description": "Allows the steam room to be on while the door is open.",
+        "default": false
+      },
+      "saunaTimeout": {
+        "type": "number",
+        "title": "Sauna Timeout",
+        "description": "Maximum runtime for the sauna in minutes before auto-shutdown.",
+        "default": 60
+      },
+      "steamTimeout": {
+        "type": "number",
+        "title": "Steam Timeout",
+        "description": "Maximum runtime for the steam room in minutes before auto-shutdown.",
+        "default": 60
+      },
+      "controllerSafetyTemperature": {
+        "type": "number",
+        "title": "Controller Safety Temperature",
+        "description": "Safety limit for the controller board temperature in degrees.",
+        "default": 85
+      },
+      "saunaMaxTemperature": {
+        "type": "number",
+        "title": "Sauna Maximum Temperature",
+        "description": "Maximum user-configurable temperature for the sauna in degrees.",
+        "default": 80
+      },
+      "saunaSafetyTemperature": {
+        "type": "number",
+        "title": "Sauna Safety Temperature",
+        "description": "Safety limit for sauna temperature in degrees.",
+        "default": 100
+      },
+      "steamMaxTemperature": {
+        "type": "number",
+        "title": "Steam Maximum Temperature",
+        "description": "Maximum user-configurable temperature for the steam room in degrees.",
+        "default": 50
+      },
+      "steamSafetyTemperature": {
+        "type": "number",
+        "title": "Steam Safety Temperature",
+        "description": "Safety limit for steam room temperature in degrees.",
+        "default": 60
+      },
+      "steamMaxHumidity": {
+        "type": "number",
+        "title": "Steam Maximum Humidity",
+        "description": "Maximum user-configurable humidity for the steam room in percent.",
+        "default": 95
       }
     }
   }
