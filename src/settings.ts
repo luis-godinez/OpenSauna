@@ -1,6 +1,8 @@
 export const PLATFORM_NAME = 'OpenSauna';
 export const PLUGIN_NAME = 'homebridge-opensauna';
 
+export type SystemType = 'sauna' | 'steam' | 'fan' | 'light';
+
 export interface OpenSaunaConfig {
   manufacturer: string; // Name of the manufacturer
   platform: string; // Name of the platform
@@ -16,9 +18,11 @@ export interface OpenSaunaConfig {
   inverseSaunaDoor: boolean; // Door sensor setup: False for Normally-Closed, True for Normally-Open
   inverseSteamDoor: boolean; // Door sensor setup: False for Normally-Closed, True for Normally-Open
   temperatureUnitFahrenheit: boolean; // If true, temperatures are in Fahrenheit; otherwise, Celsius
-  gpioPins: GpioConfig; // Configuration of GPIO pins used in the system
+  gpioConfigs: GpioConfig[]; // System to GPIO associations
   auxSensors: AuxSensorConfig[]; // Configuration of auxiliary sensors
+  saunaDoorPin: number;
   saunaOnWhileDoorOpen: boolean; // Allows the sauna to be on while the door is open
+  steamDoorPin: number;
   steamOnWhileDoorOpen: boolean; // Allows the steam room to be on while the door is open
   saunaTimeout: number; // Maximum runtime for the sauna in minutes before auto-shutdown
   steamTimeout: number; // Maximum runtime for the steam room in minutes before auto-shutdown
@@ -31,12 +35,8 @@ export interface OpenSaunaConfig {
 }
 
 export interface GpioConfig {
-  saunaPowerPins: number[]; // GPIO pins for sauna power control
-  steamPowerPins: number[]; // GPIO pins for steam room power control
-  lightPin: number; // GPIO pin for light control (optional)
-  fanPin: number; // GPIO pin for fan control (optional)
-  saunaDoorPin: number; // GPIO pin for sauna door sensor (optional)
-  steamDoorPin: number; // GPIO pin for steam door sensor (optional)
+  gpioPins: number[]; // GPIO pins for power control
+  system: SystemType; // System type associated with these power pins
 }
 
 export interface AuxSensorConfig {

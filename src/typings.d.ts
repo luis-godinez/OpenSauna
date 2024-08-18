@@ -1,11 +1,7 @@
 declare module 'onoff' {
   // Custom type definition
-  export type GpioCallback = (
-    err: Error | null | undefined,
-    value: number
-  ) => void;
+  export type GpioCallback = (err: Error | null | undefined, value: number) => void;
 }
-
 
 /**
  * Library for interacting with MCP3XXX devices
@@ -48,10 +44,7 @@ declare module 'mcp-spi-adc' {
    * @param channel Zero-indexed output channel number
    * @param callback Called after establishing a connection to the device
    */
-  export function open(
-    channel: EightChannels,
-    callback: (error: string) => void
-  ): McpInterface;
+  export function open(channel: EightChannels, callback: (error: string) => void): McpInterface;
 
   /**
    * Connect to an MCP3008 ADC

@@ -56,9 +56,12 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     devices.steamMaxTemperature =
       devices.steamMaxTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
     devices.steamMaxHumidity = devices.steamMaxHumidity ?? 60; // in percent
-    devices.saunaSafetyTemperature = devices.saunaSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 248 : 120);
-    devices.steamSafetyTemperature = devices.steamSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
-    devices.controllerSafetyTemperature = devices.controllerSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 194 : 90);
+    devices.saunaSafetyTemperature =
+      devices.saunaSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 248 : 120);
+    devices.steamSafetyTemperature =
+      devices.steamSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
+    devices.controllerSafetyTemperature =
+      devices.controllerSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 194 : 90);
 
     this.log.info('Defaults applied, adding accessory...');
     this.addAccessory(devices);
@@ -70,9 +73,7 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     const uuid = this.api.hap.uuid.generate(devices.name);
 
     // Find existing accessory by UUID
-    const existingAccessory = this.accessories.find(
-      (accessory) => accessory.UUID === uuid,
-    );
+    const existingAccessory = this.accessories.find((accessory) => accessory.UUID === uuid);
 
     if (existingAccessory) {
       // The accessory already exists, update it
@@ -83,7 +84,6 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
 
       // Ensure the accessory is up-to-date
       this.api.updatePlatformAccessories([existingAccessory]);
-
     } else {
       // Create a new accessory
       this.log.info('Adding new accessory:', devices.name);
@@ -108,12 +108,34 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
 
     // Validate the presence of required properties
     const requiredKeys: Array<keyof OpenSaunaConfig> = [
-      'platform', 'name', 'manufacturer', 'serial',
-      'hasSauna', 'hasSaunaSplitPhase', 'hasSteam', 'hasSteamI2C', 'hasSteamSplitPhase',
-      'hasLight', 'hasFan', 'inverseSaunaDoor', 'inverseSteamDoor', 'temperatureUnitFahrenheit',
-      'gpioPins', 'auxSensors', 'saunaOnWhileDoorOpen', 'steamOnWhileDoorOpen',
-      'saunaTimeout', 'steamTimeout', 'controllerSafetyTemperature', 'saunaMaxTemperature',
-      'saunaSafetyTemperature', 'steamMaxTemperature', 'steamSafetyTemperature', 'steamMaxHumidity',
+      'platform',
+      'name',
+      'manufacturer',
+      'serial',
+      'hasSauna',
+      'hasSaunaSplitPhase',
+      'hasSteam',
+      'hasSteamI2C',
+      'hasSteamSplitPhase',
+      'hasLight',
+      'hasFan',
+      'saunaDoorPin',
+      'inverseSaunaDoor',
+      'steamDoorPin',
+      'inverseSteamDoor',
+      'temperatureUnitFahrenheit',
+      'gpioConfigs',
+      'auxSensors',
+      'saunaOnWhileDoorOpen',
+      'steamOnWhileDoorOpen',
+      'saunaTimeout',
+      'steamTimeout',
+      'controllerSafetyTemperature',
+      'saunaMaxTemperature',
+      'saunaSafetyTemperature',
+      'steamMaxTemperature',
+      'steamSafetyTemperature',
+      'steamMaxHumidity',
     ];
 
     // Validate that all required keys are present

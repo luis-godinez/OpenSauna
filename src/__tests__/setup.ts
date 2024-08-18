@@ -13,20 +13,20 @@ const mockCharacteristic = {
   onGet: jest.fn().mockReturnThis(),
   updateCharacteristic: jest.fn().mockImplementation((newValue) => {
     mockCharacteristic.value = newValue; // Update the internal value
-    return mockCharacteristic;           // Allows method chaining
+    return mockCharacteristic; // Allows method chaining
   }),
   updateValue: jest.fn().mockImplementation((newValue) => {
     mockCharacteristic.value = newValue; // Update the internal value
-    return mockCharacteristic;           // Allows method chaining
+    return mockCharacteristic; // Allows method chaining
   }),
   setValue: jest.fn().mockImplementation((newValue) => {
     mockCharacteristic.value = newValue; // Update the internal value
-    return mockCharacteristic;           // Allows method chaining
+    return mockCharacteristic; // Allows method chaining
   }),
   getValue: jest.fn().mockImplementation(() => {
-    return mockCharacteristic.value;      // Return the internal value
+    return mockCharacteristic.value; // Return the internal value
   }),
-  value: 0,                 // Default value, can be overridden per test case
+  value: 0, // Default value, can be overridden per test case
 };
 
 const mockTemperatureSensorService = {
@@ -118,9 +118,9 @@ export { mockAPI };
 const mockLogger: Logger = {
   debug: jest.fn(),
   error: jest.fn(),
-  info: jest.fn((...args) => console.info(...args)),  // Print info logs to console
+  info: jest.fn((...args) => console.info(...args)), // Print info logs to console
   log: jest.fn(),
-  warn: jest.fn((...args) => console.warn(...args)),  // Print warnings to console
+  warn: jest.fn((...args) => console.warn(...args)), // Print warnings to console
 } as any;
 
 // Setup function to initialize platform and accessory for tests
@@ -128,7 +128,7 @@ export function createTestPlatformAndAccessory() {
   const platform = new OpenSaunaPlatform(
     mockLogger,
     { platform: 'OpenSauna' } as PlatformConfig,
-    mockAPI,
+    mockAPI
   );
 
   const accessory = {
@@ -157,21 +157,32 @@ export function createTestPlatformAndAccessory() {
 
   const saunaAccessory = new OpenSaunaAccessory(platform, accessory, saunaConfig);
 
-  (saunaAccessory as any).handleDoorStateChange = (doorType: string, doorOpen: boolean) => {
-    const pin = saunaConfig.gpioPins.saunaDoorPin;
-    const expectedLevel = saunaConfig.inverseSaunaDoor ? (doorOpen ? 0 : 1) : (doorOpen ? 1 : 0);
+  type DoorType = 'sauna' | 'steam';
+  type DoorStateKeys = 'saunaOnWhileDoorOpen' | 'steamOnWhileDoorOpen';
+
+  function getDoorStateKey(doorType: DoorType): DoorStateKeys {
+    return `${doorType}OnWhileDoorOpen` as DoorStateKeys;
+  }
+
+  (saunaAccessory as any).handleDoorStateChange = (doorType: DoorType, doorOpen: boolean) => {
+    const pin = doorType === 'sauna' ? saunaConfig.saunaDoorPin : saunaConfig.steamDoorPin;
+    const inverse =
+      doorType === 'sauna' ? saunaConfig.inverseSaunaDoor : saunaConfig.inverseSteamDoor;
+    const expectedLevel = inverse ? (doorOpen ? 0 : 1) : doorOpen ? 1 : 0;
 
     mockRead.mockReturnValueOnce(expectedLevel);
 
-    if (doorType === 'sauna') {
+    if (pin !== undefined) {
       const currentLevel = mockRead(pin);
+      const doorStateKey = getDoorStateKey(doorType);
+
       if (currentLevel === expectedLevel) {
-        if (doorOpen && !saunaConfig.saunaOnWhileDoorOpen) {
+        if (doorOpen && !saunaConfig[doorStateKey]) {
           console.log('Door open, heat disabled');
-          saunaAccessory['handleStateSet']('sauna',0);
-        } else if (!doorOpen && !saunaConfig.saunaOnWhileDoorOpen) {
+          saunaAccessory['setPowerState'](doorType, false);
+        } else if (!doorOpen && !saunaConfig[doorStateKey]) {
           console.log('Door closed, heat enabled');
-          saunaAccessory['handleStateSet']('sauna',1);
+          saunaAccessory['setPowerState'](doorType, true);
         }
       }
     }

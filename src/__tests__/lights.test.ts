@@ -11,7 +11,7 @@ describe('OpenSaunaAccessory Lights Test', () => {
   let saunaAccessory: OpenSaunaAccessory;
 
   beforeEach(() => {
-    jest.useFakeTimers();  // Enable fake timers for this test suite
+    jest.useFakeTimers(); // Enable fake timers for this test suite
     jest.clearAllMocks();
     ({ platform, accessory, saunaAccessory } = createTestPlatformAndAccessory());
   });
@@ -26,11 +26,12 @@ describe('OpenSaunaAccessory Lights Test', () => {
   });
 
   test('should turn on the light when lightPowerSwitch is set to true', () => {
-    const lightPin = saunaConfig.gpioPins.lightPin;
+    const lightConfig = saunaConfig.gpioConfigs.find((config) => config.system === 'light');
+    const lightPin = lightConfig?.gpioPins[0];
 
     if (lightPin !== undefined) {
       // Simulate turning the light on
-      saunaAccessory['setPowerState']([lightPin], true);
+      saunaAccessory['setPowerState']('light', true);
 
       // Verify that the light pin was turned on
       expect(mockDigitalWrite).toHaveBeenCalledWith(lightPin, 1); // Light on
@@ -40,11 +41,12 @@ describe('OpenSaunaAccessory Lights Test', () => {
   });
 
   test('should turn off the light when lightPowerSwitch is set to false', () => {
-    const lightPin = saunaConfig.gpioPins.lightPin;
+    const lightConfig = saunaConfig.gpioConfigs.find((config) => config.system === 'light');
+    const lightPin = lightConfig?.gpioPins[0];
 
     if (lightPin !== undefined) {
       // Simulate turning the light off
-      saunaAccessory['setPowerState']([lightPin], false);
+      saunaAccessory['setPowerState']('light', false);
 
       // Verify that the light pin was turned off
       expect(mockDigitalWrite).toHaveBeenCalledWith(lightPin, 0); // Light off
