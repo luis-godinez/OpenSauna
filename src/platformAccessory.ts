@@ -576,6 +576,9 @@ export class OpenSaunaAccessory {
               return;
             }
 
+            // Log the raw ADC value for debugging
+            this.platform.log.info(`[Raw ADC] ${sensor.name}: ${reading.rawValue}`);
+
             // Convert the ADC reading to a temperature value
             const temperatureCelsius = this.calculateTemperature(
               reading.value,

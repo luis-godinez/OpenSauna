@@ -1,8 +1,3 @@
-declare module 'onoff' {
-  // Custom type definition
-  export type GpioCallback = (err: Error | null | undefined, value: number) => void;
-}
-
 /**
  * Library for interacting with MCP3XXX devices
  *
