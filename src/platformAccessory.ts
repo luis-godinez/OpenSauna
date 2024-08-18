@@ -571,7 +571,7 @@ export class OpenSaunaAccessory {
           this.adc.read((err: string | null, reading: McpReading) => {
             if (err) {
               this.platform.log.error(
-                `Failed to read temperature for sensor "${sensor.system}": ${err}`,
+                `Failed to read temperature for sensor "${sensor.name}": ${err}`,
               );
               return;
             }
@@ -590,7 +590,7 @@ export class OpenSaunaAccessory {
             const isInvalidReading = temperatureCelsius < -20 || temperatureCelsius > 150;
             if (isInvalidReading) {
               this.platform.log.warn(
-                `${sensor.system} Invalid Temperature: ${displayTemperature.toFixed(2)} °${
+                `${sensor.name} Invalid Temperature: ${displayTemperature.toFixed(2)} °${
                   this.config.temperatureUnitFahrenheit ? 'F' : 'C'
                 }`,
               );
@@ -598,7 +598,7 @@ export class OpenSaunaAccessory {
               this.reflectInvalidReadingState(sensor);
               return;
             } else {
-              this.platform.log.info(`[Temp] ${sensor.system}:${temperatureCelsius}`);
+              this.platform.log.info(`[Temp] ${sensor.name}:${temperatureCelsius}`);
             }
 
             // Update the HomeKit characteristic with the current temperature
@@ -611,7 +611,7 @@ export class OpenSaunaAccessory {
             }
 
             this.platform.log.info(
-              `${sensor.system} Temperature: ${displayTemperature.toFixed(2)} °${
+              `${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °${
                 this.config.temperatureUnitFahrenheit ? 'F' : 'C'
               }`,
             );
@@ -624,7 +624,7 @@ export class OpenSaunaAccessory {
             }
 
             // Perform additional safety checks for PCB temperature
-            if (sensor.name === 'PCB_NTC') {
+            if (sensor.system === 'controller') {
               this.monitorPcbTemperatureSafety(temperatureCelsius);
             }
           });
