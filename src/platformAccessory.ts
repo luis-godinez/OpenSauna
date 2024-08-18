@@ -3,7 +3,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { OpenSaunaPlatform } from './platform.js';
 import rpio from 'rpio';
-const mcpSpiAdc = require('mcp-spi-adc');
+import { openMcp3008, McpInterface, McpReading, EightChannels } from 'mcp-spi-adc';
 import i2c from 'i2c-bus';
 import { OpenSaunaConfig, AuxSensorConfig, SystemType } from './settings.js';
 
@@ -13,7 +13,7 @@ export class OpenSaunaAccessory {
   private steamTemperatureSensor?: Service;
   private lightPowerSwitch?: Service;
   private fanPowerSwitch?: Service;
-  private adc!: any;  // Updated to any since we're using require
+  private adc!: McpInterface;
   private i2cBus!: i2c.PromisifiedBus;
   private saunaTimer: NodeJS.Timeout | null = null;
   private steamTimer: NodeJS.Timeout | null = null;
@@ -79,32 +79,19 @@ export class OpenSaunaAccessory {
 
   private validateSensorConfiguration() {
     const systemCount: { [key: string]: number } = {};
-    const channelSet = new Set<number>(); // To track used channels
 
     this.config.auxSensors.forEach((sensor) => {
-      // Check for duplicate system configuration
       if (sensor.system) {
         if (!systemCount[sensor.system]) {
           systemCount[sensor.system] = 0;
         }
         systemCount[sensor.system]++;
       }
-
-      // Check for duplicate channels
-      if (channelSet.has(sensor.channel)) {
-        throw new Error(
-          `Duplicate channel detected: Channel ${sensor.channel} is already used by another sensor. Each sensor must have a unique channel.`,
-        );
-      }
-      channelSet.add(sensor.channel);
     });
 
-    // Ensure only one NTC sensor per system
     for (const system in systemCount) {
       if (systemCount[system] > 1) {
-        throw new Error(
-          `Only one NTC sensor is allowed for the ${system} system.`,
-        );
+        throw new Error(`Only one NTC sensor is allowed for the ${system} system.`);
       }
     }
   }
@@ -149,7 +136,7 @@ export class OpenSaunaAccessory {
         reject(new Error('ADC initialization timeout'));
       }, 5000); // 5-second timeout
 
-      this.adc = mcpSpiAdc.openMcp3008(0, { speedHz: 1350000 }, (error: any) => {
+      openMcp3008(0, { speedHz: 1350000 }, (error) => {
         clearTimeout(timeout);
         if (error) {
           this.platform.log.error('Failed to open ADC:', error);
@@ -568,23 +555,23 @@ export class OpenSaunaAccessory {
   // Monitor temperatures using ADC channels
   private monitorTemperatures() {
     this.config.auxSensors.forEach((sensor) => {
-      const adcChannel = sensor.channel;
+      const adcChannel = sensor.channel as EightChannels;
 
       // Open ADC channel for each sensor
-      this.adc = mcpSpiAdc.openMcp3008(adcChannel, { speedHz: 1350000 }, (err: any) => {
+      this.adc = openMcp3008(adcChannel, { speedHz: 1350000 }, (err: string) => {
         if (err) {
           this.platform.log.error(
-            `Failed to open ADC channel ${adcChannel} for sensor "${sensor.name}": ${err}`,
+            `Failed to open ADC channel ${adcChannel} for sensor "${sensor.system}": ${err}`,
           );
           return;
         }
 
         // Set up a regular interval to read from the ADC channel
         const interval = setInterval(() => {
-          this.adc.read((err: any, reading: any) => {
+          this.adc.read((err: string | null, reading: McpReading) => {
             if (err) {
               this.platform.log.error(
-                `Failed to read temperature for sensor "${sensor.name}": ${err}`,
+                `Failed to read temperature for sensor "${sensor.system}": ${err}`,
               );
               return;
             }
@@ -603,7 +590,7 @@ export class OpenSaunaAccessory {
             const isInvalidReading = temperatureCelsius < -20 || temperatureCelsius > 150;
             if (isInvalidReading) {
               this.platform.log.warn(
-                `${sensor.name} Invalid Temperature: ${displayTemperature.toFixed(2)} °${
+                `${sensor.system} Invalid Temperature: ${displayTemperature.toFixed(2)} °${
                   this.config.temperatureUnitFahrenheit ? 'F' : 'C'
                 }`,
               );
@@ -611,7 +598,7 @@ export class OpenSaunaAccessory {
               this.reflectInvalidReadingState(sensor);
               return;
             } else {
-              this.platform.log.info(`[Temp] ${sensor.name}:${temperatureCelsius}`);
+              this.platform.log.info(`[Temp] ${sensor.system}:${temperatureCelsius}`);
             }
 
             // Update the HomeKit characteristic with the current temperature

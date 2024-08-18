@@ -62,7 +62,7 @@
         },
         {
           "name": "STEAM_NTC",
-          "channel": 2,
+          "channel": 1,
           "system": "steam",
           "control": true,
           "resistanceAt25C": 10000,
