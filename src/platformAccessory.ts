@@ -13,11 +13,9 @@ export class OpenSaunaAccessory {
   private steamTemperatureSensor?: Service;
   private lightPowerSwitch?: Service;
   private fanPowerSwitch?: Service;
-  private adc!: McpInterface;
   private i2cBus!: i2c.PromisifiedBus;
   private saunaTimer: NodeJS.Timeout | null = null;
   private steamTimer: NodeJS.Timeout | null = null;
-  private temperatureIntervals: NodeJS.Timeout[] = [];
   private humidityInterval: NodeJS.Timeout | null = null;
   private doorPollRegistered: { [pin: number]: boolean } = {};
 
@@ -65,7 +63,6 @@ export class OpenSaunaAccessory {
       this.validateSensorConfiguration();
 
       await Promise.all([
-        this.initializeAdc(),
         this.initializeI2C(),
         this.initializeGpioPinsAsync(),
       ]);
@@ -125,27 +122,6 @@ export class OpenSaunaAccessory {
     this.config.gpioConfigs.forEach((config) => {
       config.gpioPins.forEach((pin) => {
         rpio.close(pin);
-      });
-    });
-  }
-
-  // Initialize the ADC with a timeout and error handling
-  private initializeAdc(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('ADC initialization timeout'));
-      }, 5000); // 5-second timeout
-
-      // Specify SPI0 (busNumber: 0) and CE0 (deviceNumber: 0)
-      openMcp3008(0, { speedHz: 1350000, busNumber: 0, deviceNumber: 0 }, (error) => {
-        clearTimeout(timeout);
-        if (error) {
-          this.platform.log.error('Failed to open ADC:', error);
-          reject(error);
-        } else {
-          this.platform.log.info('ADC opened successfully.');
-          resolve();
-        }
       });
     });
   }
@@ -555,8 +531,8 @@ export class OpenSaunaAccessory {
     this.config.auxSensors.forEach((sensor) => {
       const adcChannel = sensor.channel as EightChannels;
 
-      // Open ADC channel for each sensor
-      this.adc = openMcp3008(adcChannel, { speedHz: 1350000 }, (err: string) => {
+      // Open ADC channel for each sensor independently
+      const sensorAdc = openMcp3008(adcChannel, { speedHz: 1350000 }, (err) => {
         if (err) {
           this.platform.log.error(
             `Failed to open ADC channel ${adcChannel} for sensor "${sensor.system}": ${err}`,
@@ -565,17 +541,16 @@ export class OpenSaunaAccessory {
         }
 
         // Set up a regular interval to read from the ADC channel
-        const interval = setInterval(() => {
-          this.adc.read((err: string | null, reading: McpReading) => {
+        setInterval(() => {
+          sensorAdc.read((err: string | null, reading: McpReading) => {
             if (err) {
-              this.platform.log.error(
-                `Failed to read temperature for sensor "${sensor.name}": ${err}`,
-              );
+              this.platform.log.error(`Failed to read temperature for sensor "${sensor.name}": ${err}`);
               return;
             }
 
             // Log the raw ADC value for debugging
-            this.platform.log.info(`[Raw ADC] ${sensor.name}: ${reading.rawValue}`);
+            const piVoltage = 3.3; // ADC runs on 5V but has 3.3V output to Pi via voltage divider.
+            const voltage = reading.value * piVoltage;
 
             // Convert the ADC reading to a temperature value
             const temperatureCelsius = this.calculateTemperature(
@@ -598,8 +573,6 @@ export class OpenSaunaAccessory {
               // Reflect the invalid state in the HomeKit UI or log
               this.reflectInvalidReadingState(sensor);
               return;
-            } else {
-              this.platform.log.info(`[Temp] ${sensor.name}:${temperatureCelsius}`);
             }
 
             // Update the HomeKit characteristic with the current temperature
@@ -630,8 +603,6 @@ export class OpenSaunaAccessory {
             }
           });
         }, 5000); // check temperature every 5 seconds
-
-        this.temperatureIntervals.push(interval);
       });
     });
   }
@@ -732,11 +703,10 @@ export class OpenSaunaAccessory {
 
   // Monitor PCB temperature to ensure it doesn't exceed safety limits
   private monitorPcbTemperatureSafety(temperatureCelsius: number) {
-    this.platform.log.warn(
-      'PCB temperature above safety limit. Turning off all relays & flashing lights.',
-    );
-    const safetyTemperature = this.config.controllerSafetyTemperature;
-    if (temperatureCelsius > safetyTemperature) {
+    if (temperatureCelsius > this.config.controllerSafetyTemperature) {
+      this.platform.log.warn(
+        'PCB temperature above safety limit. Turning off all relays & flashing lights.',
+      );
       this.disableAllRelays();
       this.flashLights(10); // Flash warning lights
     }
@@ -834,8 +804,7 @@ export class OpenSaunaAccessory {
       clearTimeout(this.steamTimer);
       this.steamTimer = null;
     }
-    this.temperatureIntervals.forEach((interval) => clearInterval(interval));
-    this.temperatureIntervals = [];
+
     if (this.humidityInterval) {
       clearInterval(this.humidityInterval);
       this.humidityInterval = null;
@@ -925,13 +894,10 @@ export class OpenSaunaAccessory {
 
   private calculateTemperature(adcValue: number, resistanceAt25C: number, bValue: number): number {
     const pullUpResistor = 10000; // 10k ohm pull-up resistor
-
-    // Calculate the resistance of the thermistor based on the ADC value
-    let resistance = 1023 / adcValue - 1;
-    resistance = pullUpResistor / resistance;
+    const resistance = (1.0 / adcValue - 1.0) * pullUpResistor;
 
     // Apply the Steinhart-Hart equation
-    let steinhart = resistance / resistanceAt25C; // (R/Ro)
+    let steinhart = resistance / resistanceAt25C; // R/Ro
     steinhart = Math.log(steinhart); // ln(R/Ro)
     steinhart /= bValue; // 1/B * ln(R/Ro)
     steinhart += 1.0 / (25 + 273.15); // + (1/To)
