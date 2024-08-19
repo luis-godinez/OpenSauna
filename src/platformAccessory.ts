@@ -136,7 +136,8 @@ export class OpenSaunaAccessory {
         reject(new Error('ADC initialization timeout'));
       }, 5000); // 5-second timeout
 
-      openMcp3008(0, { speedHz: 1350000 }, (error) => {
+      // Specify SPI0 (busNumber: 0) and CE0 (deviceNumber: 0)
+      openMcp3008(0, { speedHz: 1350000, busNumber: 0, deviceNumber: 0 }, (error) => {
         clearTimeout(timeout);
         if (error) {
           this.platform.log.error('Failed to open ADC:', error);
@@ -543,13 +544,10 @@ export class OpenSaunaAccessory {
 
     // Set the GPIO pins based on the state
     const powerState = state ? rpio.HIGH : rpio.LOW;
-    gpioPins?.forEach((pin) => {
-      rpio.open(pin, rpio.OUTPUT);
+    gpioPins?.forEach((pin, index) => {
+      this.platform.log.info(`${system}: setPowerState --> ${pin} ${state ? 'ON' : 'OFF'}`);
       rpio.write(pin, powerState);
-      rpio.close(pin);
     });
-
-    this.platform.log.info(`${system}: setPowerState -->${state ? 'ON' : 'OFF'}`);
   }
 
   // Monitor temperatures using ADC channels
@@ -767,9 +765,7 @@ export class OpenSaunaAccessory {
     this.config.gpioConfigs.forEach((config) => {
       // For each system, turn off all associated gpioPins
       config.gpioPins.forEach((pin) => {
-        rpio.open(pin, rpio.OUTPUT);
         rpio.write(pin, rpio.LOW);
-        rpio.close(pin);
       });
     });
 
