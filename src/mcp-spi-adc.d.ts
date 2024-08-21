@@ -29,7 +29,7 @@ declare module 'mcp-spi-adc' {
   export function open(
     channel: EightChannels,
     options: McpOptions<EightChannels>,
-    callback: (error: string) => void
+    callback: (error: string) => void,
   ): McpInterface;
 
   /**
@@ -52,7 +52,7 @@ declare module 'mcp-spi-adc' {
   export function openMcp3008(
     channel: EightChannels,
     options: McpOptions<EightChannels>,
-    callback: (error: string) => void
+    callback: (error: string) => void,
   ): McpInterface;
 
   /**
@@ -62,10 +62,7 @@ declare module 'mcp-spi-adc' {
    * @param channel Zero-indexed output channel number
    * @param callback Called after establishing a connection to the device
    */
-  export function openMcp3008(
-    channel: EightChannels,
-    callback: (error: string) => void
-  ): McpInterface;
+  export function openMcp3008(channel: EightChannels, callback: (error: string) => void): McpInterface;
 
   /**
    * SPI device surface area for interacting with the MCP3XXX device

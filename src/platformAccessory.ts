@@ -169,19 +169,11 @@ export class OpenSaunaAccessory {
     }
 
     if (this.config.hasLight) {
-      this.lightPowerSwitch = this.addSwitchService(
-        'Light Power',
-        'light-power',
-        this.handleLightPowerSet.bind(this),
-      );
+      this.lightPowerSwitch = this.addSwitchService('Light Power', 'light-power', this.handleLightPowerSet.bind(this));
     }
 
     if (this.config.hasFan) {
-      this.fanPowerSwitch = this.addSwitchService(
-        'Fan Power',
-        'fan-power',
-        this.handleFanPowerSet.bind(this),
-      );
+      this.fanPowerSwitch = this.addSwitchService('Fan Power', 'fan-power', this.handleFanPowerSet.bind(this));
     }
 
     // Setup auxiliary temperature sensors
@@ -189,11 +181,7 @@ export class OpenSaunaAccessory {
       const sensorName = sensor.name;
       const thermistorService =
         this.accessory.getService(sensorName) ||
-        this.accessory.addService(
-          this.platform.Service.TemperatureSensor,
-          sensorName,
-          `aux-${sensor.channel}`,
-        );
+        this.accessory.addService(this.platform.Service.TemperatureSensor, sensorName, `aux-${sensor.channel}`);
 
       // Store the service in the map for later updates
       if (thermistorService) {
@@ -203,10 +191,7 @@ export class OpenSaunaAccessory {
 
     // Setup steam temperature and humidity sensors
     if (this.config.hasSteam) {
-      this.steamTemperatureSensor = this.addTemperatureSensorService(
-        'Steam Temperature',
-        'steam-temperature',
-      );
+      this.steamTemperatureSensor = this.addTemperatureSensorService('Steam Temperature', 'steam-temperature');
       this.steamHumiditySensor = this.addHumiditySensorService('Steam Humidity', 'steam-humidity');
     }
 
@@ -227,14 +212,9 @@ export class OpenSaunaAccessory {
   }
 
   // Set the name characteristic for the power switch
-  private addSwitchService(
-    name: string,
-    subtype: string,
-    onSetHandler: (value: CharacteristicValue) => void,
-  ): Service {
+  private addSwitchService(name: string, subtype: string, onSetHandler: (value: CharacteristicValue) => void): Service {
     const switchService =
-      this.accessory.getService(subtype) ||
-      this.accessory.addService(this.platform.Service.Switch, name, subtype);
+      this.accessory.getService(subtype) || this.accessory.addService(this.platform.Service.Switch, name, subtype);
     switchService.getCharacteristic(this.platform.Characteristic.On).onSet(onSetHandler);
     switchService.setCharacteristic(this.platform.Characteristic.Name, name); // Set the name
     return switchService;
@@ -248,8 +228,7 @@ export class OpenSaunaAccessory {
     temperatureSetHandler: (value: CharacteristicValue) => void,
   ): Service {
     const thermostatService =
-      this.accessory.getService(subtype) ||
-      this.accessory.addService(this.platform.Service.Thermostat, name, subtype);
+      this.accessory.getService(subtype) || this.accessory.addService(this.platform.Service.Thermostat, name, subtype);
 
     // Restrict target states to "Off" and "Heat"
     thermostatService
@@ -273,9 +252,7 @@ export class OpenSaunaAccessory {
 
     // Set the temperature properties based on config
     const maxTemperature =
-      subtype === 'sauna-thermostat'
-        ? this.config.saunaMaxTemperature
-        : this.config.steamMaxTemperature;
+      subtype === 'sauna-thermostat' ? this.config.saunaMaxTemperature : this.config.steamMaxTemperature;
 
     this.platform.log.info(`Setup ${name}`);
 
@@ -366,15 +343,12 @@ export class OpenSaunaAccessory {
     const otherSystem = system === 'sauna' ? 'steam' : 'sauna';
     const otherService = this.accessory.getService(`${otherSystem}-thermostat`);
     const otherSystemRunning =
-      otherService?.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
-        .value === this.platform.Characteristic.CurrentHeatingCoolingState.HEAT;
+      otherService?.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).value ===
+      this.platform.Characteristic.CurrentHeatingCoolingState.HEAT;
 
     this.platform.log.info(` [Request] handleStateSet(${system}):`, value ? 'HEAT' : 'OFF');
 
-    if (
-      otherSystemRunning &&
-      value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT
-    ) {
+    if (otherSystemRunning && value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
       this.platform.log.info('OTHER SYSTEM MUST BE TURNED OFF FIRST.');
 
       // Ensure this does not cause a deadlock or infinite wait
@@ -401,9 +375,7 @@ export class OpenSaunaAccessory {
   private async turnOffOtherSystem(system: SystemType) {
     const service = this.accessory.getService(`${system}-thermostat`);
     if (service) {
-      const currentState = service.getCharacteristic(
-        this.platform.Characteristic.CurrentHeatingCoolingState,
-      ).value;
+      const currentState = service.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).value;
 
       if (currentState === this.platform.Characteristic.CurrentHeatingCoolingState.HEAT) {
         this.platform.log.info(`Turning off ${system} before starting the other system.`);
@@ -470,9 +442,7 @@ export class OpenSaunaAccessory {
 
     if (service) {
       // Check if relays are already off
-      const currentMode = service.getCharacteristic(
-        this.platform.Characteristic.CurrentHeatingCoolingState,
-      ).value;
+      const currentMode = service.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).value;
 
       if (currentMode === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
         this.platform.log.info('System already off. Skipping relay actuation.');
@@ -538,18 +508,14 @@ export class OpenSaunaAccessory {
       // Open ADC channel for each sensor independently
       const sensorAdc = openMcp3008(adcChannel, { speedHz: 1350000 }, (err) => {
         if (err) {
-          this.platform.log.error(
-            `Failed to open ADC channel ${adcChannel} for sensor "${sensor.system}": ${err}`,
-          );
+          this.platform.log.error(`Failed to open ADC channel ${adcChannel} for sensor "${sensor.system}": ${err}`);
           return;
         }
 
         const readTemperature = () => {
           sensorAdc.read((err: string | null, reading: McpReading) => {
             if (err) {
-              this.platform.log.error(
-                `Failed to read temperature for sensor "${sensor.name}": ${err}`,
-              );
+              this.platform.log.error(`Failed to read temperature for sensor "${sensor.name}": ${err}`);
               return;
             }
 
@@ -558,11 +524,7 @@ export class OpenSaunaAccessory {
             const voltage = reading.value * piVoltage;
 
             // Convert the ADC reading to a temperature value
-            const temperatureCelsius = this.calculateTemperature(
-              reading.value,
-              sensor.resistanceAt25C,
-              sensor.bValue,
-            );
+            const temperatureCelsius = this.calculateTemperature(reading.value, sensor.resistanceAt25C, sensor.bValue);
 
             const displayTemperature = this.config.temperatureUnitFahrenheit
               ? this.convertToFahrenheit(temperatureCelsius)
@@ -631,9 +593,7 @@ export class OpenSaunaAccessory {
     if (!this.relaysEnabled) {
       // Only enable if not already enabled
       this.config.gpioPowerPins.forEach((pinConfig) => {
-        this.platform.log.info(
-          `Enabling 120V Relay: Set Pin ${pinConfig.set}, Reset Pin ${pinConfig.reset}`,
-        );
+        this.platform.log.info(`Enabling 120V Relay: Set Pin ${pinConfig.set}, Reset Pin ${pinConfig.reset}`);
         rpio.write(pinConfig.set, rpio.HIGH);
         rpio.write(pinConfig.reset, rpio.LOW);
       });
@@ -645,9 +605,7 @@ export class OpenSaunaAccessory {
     if (this.relaysEnabled) {
       // Only disable if not already disabled
       this.config.gpioPowerPins.forEach((pinConfig) => {
-        this.platform.log.info(
-          `Disabling 120V Relay: Set Pin ${pinConfig.set}, Reset Pin ${pinConfig.reset}`,
-        );
+        this.platform.log.info(`Disabling 120V Relay: Set Pin ${pinConfig.set}, Reset Pin ${pinConfig.reset}`);
         rpio.write(pinConfig.set, rpio.LOW);
         rpio.write(pinConfig.reset, rpio.HIGH);
       });
@@ -674,24 +632,19 @@ export class OpenSaunaAccessory {
     }
 
     // Check for invalid readings or NaN values
-    const isInvalidReading =
-      isNaN(temperatureCelsius) || temperatureCelsius < -20 || temperatureCelsius > 150;
+    const isInvalidReading = isNaN(temperatureCelsius) || temperatureCelsius < -20 || temperatureCelsius > 150;
 
     if (thermostatService) {
       if (isInvalidReading) {
         // Ensure power remains off for invalid readings
         this.stopSystem(system);
-        this.platform.log.error(
-          `${system} has an invalid signal. Power off due to invalid reading.`,
-        );
+        this.platform.log.error(`${system} has an invalid signal. Power off due to invalid reading.`);
         return; // Exit early since the reading is invalid
       }
 
       // Check safety temperature for critical shutdown
       if (safetyTemperature !== undefined && temperatureCelsius >= safetyTemperature) {
-        this.platform.log.warn(
-          `${system} exceeded safety temperature! Immediate power off and flashing lights.`,
-        );
+        this.platform.log.warn(`${system} exceeded safety temperature! Immediate power off and flashing lights.`);
         this.stopSystem(system);
         this.flashLights(10); // Flash warning lights
         return; // Exit to ensure no further action is taken
@@ -699,17 +652,14 @@ export class OpenSaunaAccessory {
 
       // Check normal operational max temperature
       if (maxTemperature !== undefined && temperatureCelsius >= maxTemperature) {
-        this.platform.log.warn(
-          `${system} exceeded max temperature. Power off and flashing lights.`,
-        );
+        this.platform.log.warn(`${system} exceeded max temperature. Power off and flashing lights.`);
         this.stopSystem(system);
         this.flashLights(10); // Flash warning lights
         return; // Exit to ensure no further action is taken
       }
 
-      const targetTemperature = thermostatService.getCharacteristic(
-        this.platform.Characteristic.TargetTemperature,
-      ).value as number;
+      const targetTemperature = thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature)
+        .value as number;
 
       const currentMode = thermostatService.getCharacteristic(
         this.platform.Characteristic.CurrentHeatingCoolingState,
@@ -751,8 +701,7 @@ export class OpenSaunaAccessory {
 
   private flashLights(times: number) {
     const lightGpio: SystemType = 'light'; // This should be of type SystemType
-    const gpioPowerPins =
-      this.config.relayPins.find((config) => config.system === lightGpio)?.GPIO ?? [];
+    const gpioPowerPins = this.config.relayPins.find((config) => config.system === lightGpio)?.GPIO ?? [];
 
     if (gpioPowerPins && gpioPowerPins.length > 0) {
       this.platform.log.info(`Flashing lights ${times} times.`);
@@ -796,16 +745,11 @@ export class OpenSaunaAccessory {
 
         this.platform.log.info(`Steam Humidity: ${humidity} %`);
         this.platform.log.info(
-          `Steam Temperature: ${displayTemperature.toFixed(2)} °${
-            this.config.temperatureUnitFahrenheit ? 'F' : 'C'
-          }`,
+          `Steam Temperature: ${displayTemperature.toFixed(2)} °${this.config.temperatureUnitFahrenheit ? 'F' : 'C'}`,
         );
 
         if (this.steamHumiditySensor) {
-          this.steamHumiditySensor.updateCharacteristic(
-            this.platform.Characteristic.CurrentRelativeHumidity,
-            humidity,
-          );
+          this.steamHumiditySensor.updateCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, humidity);
         }
 
         if (this.steamTemperatureSensor) {
@@ -820,9 +764,7 @@ export class OpenSaunaAccessory {
           this.stopSystem('steam'); //Power off
         }
       } catch (err) {
-        this.platform.log.error(
-          `Failed to read humidity and temperature: ${(err as Error).message}`,
-        );
+        this.platform.log.error(`Failed to read humidity and temperature: ${(err as Error).message}`);
         this.stopSystem('steam'); // Power off
       }
     }, 10000); // Check humidity every 10 seconds

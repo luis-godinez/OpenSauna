@@ -1,10 +1,10 @@
-import fs from 'fs';
-import path from 'path';
-import { OpenSaunaAccessory } from '../platformAccessory';
-import { OpenSaunaPlatform } from '../platform';
-import { PlatformAccessory, API, Logger, PlatformConfig } from 'homebridge';
-import { OpenSaunaConfig } from '../settings';
-import { mockRead } from '../jest.setup';
+import fs from "fs";
+import path from "path";
+import { OpenSaunaAccessory } from "../platformAccessory";
+import { OpenSaunaPlatform } from "../platform";
+import { PlatformAccessory, API, Logger, PlatformConfig } from "homebridge";
+import { OpenSaunaConfig } from "../settings";
+import { mockRead } from "../jest.setup";
 
 // Mock Homebridge API and services
 const mockCharacteristic = {
@@ -66,8 +66,8 @@ export {
 };
 
 // Load configuration from config.json
-const configPath = path.resolve(__dirname, '../config.json');
-const configData = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+const configPath = path.resolve(__dirname, "../config.json");
+const configData = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 
 // Extract the first OpenSaunaConfig from the platforms array
 const saunaConfig: OpenSaunaConfig = configData.platforms[0];
@@ -125,24 +125,20 @@ const mockLogger: Logger = {
 
 // Setup function to initialize platform and accessory for tests
 export function createTestPlatformAndAccessory() {
-  const platform = new OpenSaunaPlatform(
-    mockLogger,
-    { platform: 'OpenSauna' } as PlatformConfig,
-    mockAPI
-  );
+  const platform = new OpenSaunaPlatform(mockLogger, { platform: "OpenSauna" } as PlatformConfig, mockAPI);
 
   const accessory = {
     getService: jest.fn().mockImplementation((serviceName) => {
       if (serviceName === platform.Service.AccessoryInformation) {
         return mockAccessoryInformationService;
       }
-      if (serviceName.includes('Temperature')) {
+      if (serviceName.includes("Temperature")) {
         return mockTemperatureSensorService;
       }
-      if (serviceName.includes('ContactSensor')) {
+      if (serviceName.includes("ContactSensor")) {
         return mockContactSensorService;
       }
-      if (serviceName.includes('Thermostat')) {
+      if (serviceName.includes("Thermostat")) {
         return mockThermostatService; // Use the thermostat service mock for sauna and steam
       }
       return mockSwitchService; // Default to switch service for light and fan
@@ -157,17 +153,16 @@ export function createTestPlatformAndAccessory() {
 
   const saunaAccessory = new OpenSaunaAccessory(platform, accessory, saunaConfig);
 
-  type DoorType = 'sauna' | 'steam';
-  type DoorStateKeys = 'saunaOnWhileDoorOpen' | 'steamOnWhileDoorOpen';
+  type DoorType = "sauna" | "steam";
+  type DoorStateKeys = "saunaOnWhileDoorOpen" | "steamOnWhileDoorOpen";
 
   function getDoorStateKey(doorType: DoorType): DoorStateKeys {
     return `${doorType}OnWhileDoorOpen` as DoorStateKeys;
   }
 
   (saunaAccessory as any).handleDoorStateChange = (doorType: DoorType, doorOpen: boolean) => {
-    const pin = doorType === 'sauna' ? saunaConfig.saunaDoorPin : saunaConfig.steamDoorPin;
-    const inverse =
-      doorType === 'sauna' ? saunaConfig.inverseSaunaDoor : saunaConfig.inverseSteamDoor;
+    const pin = doorType === "sauna" ? saunaConfig.saunaDoorPin : saunaConfig.steamDoorPin;
+    const inverse = doorType === "sauna" ? saunaConfig.inverseSaunaDoor : saunaConfig.inverseSteamDoor;
     const expectedLevel = inverse ? (doorOpen ? 0 : 1) : doorOpen ? 1 : 0;
 
     mockRead.mockReturnValueOnce(expectedLevel);
@@ -178,11 +173,11 @@ export function createTestPlatformAndAccessory() {
 
       if (currentLevel === expectedLevel) {
         if (doorOpen && !saunaConfig[doorStateKey]) {
-          console.log('Door open, heat disabled');
-          saunaAccessory['setPowerState'](doorType, false);
+          console.log("Door open, heat disabled");
+          saunaAccessory["setPowerState"](doorType, false);
         } else if (!doorOpen && !saunaConfig[doorStateKey]) {
-          console.log('Door closed, heat enabled');
-          saunaAccessory['setPowerState'](doorType, true);
+          console.log("Door closed, heat enabled");
+          saunaAccessory["setPowerState"](doorType, true);
         }
       }
     }
