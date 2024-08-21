@@ -20,7 +20,7 @@
   },
   "main": "dist/index.js",
   "scripts": {
-    "test": "jest",
+    "test": "jest --silent --bail",
     "lint": "eslint src",
     "watch": "npm run build && npm link && nodemon",
     "build": "rimraf ./dist && tsc",

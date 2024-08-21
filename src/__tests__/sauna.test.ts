@@ -10,21 +10,22 @@ describe('OpenSaunaAccessory Sauna Test', () => {
   let saunaAccessory: OpenSaunaAccessory;
 
   beforeEach(() => {
-    jest.useFakeTimers(); // Enable fake timers for this test suite
+    process.env.NODE_ENV = 'test';
+    jest.useFakeTimers();
     jest.clearAllMocks();
     ({ platform, accessory, saunaAccessory } = createTestPlatformAndAccessory());
   });
 
   afterEach(() => {
-    saunaAccessory.clearIntervalsAndTimeouts(); // Ensure all timers are cleared
-    jest.runAllTimers(); // Run and clear any pending timers
-    jest.clearAllTimers(); // Clear any remaining timers
+    saunaAccessory.clearIntervalsAndTimeouts();
+    jest.runAllTimers();
+    jest.clearAllTimers();
     process.removeAllListeners('exit');
     process.removeAllListeners('SIGINT');
     process.removeAllListeners('SIGTERM');
   });
 
-  const saunaPowerPins = saunaConfig.relayPins.find(
+  const saunagpioPowerPins = saunaConfig.relayPins.find(
     (config) => config.system === 'sauna'
   )?.GPIO;
 
@@ -34,7 +35,7 @@ describe('OpenSaunaAccessory Sauna Test', () => {
       platform.Characteristic.TargetHeatingCoolingState.HEAT
     );
 
-    saunaPowerPins?.forEach((pin: number) => {
+    saunagpioPowerPins?.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Sauna should turn on
     });
   });
@@ -47,13 +48,13 @@ describe('OpenSaunaAccessory Sauna Test', () => {
       platform.Characteristic.TargetHeatingCoolingState.HEAT
     );
 
-    saunaPowerPins?.forEach((pin: number) => {
+    saunagpioPowerPins?.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1);
     });
 
     // Turn off heater when above setpoint
     saunaAccessory['handleTemperatureControl']('sauna', 80);
-    saunaPowerPins?.forEach((pin: number) => {
+    saunagpioPowerPins?.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0);
     });
 
@@ -62,7 +63,7 @@ describe('OpenSaunaAccessory Sauna Test', () => {
       platform.Characteristic.TargetHeatingCoolingState.OFF
     );
 
-    saunaPowerPins?.forEach((pin: number) => {
+    saunagpioPowerPins?.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0);
     });
   });
@@ -77,7 +78,7 @@ describe('OpenSaunaAccessory Sauna Test', () => {
 
     (saunaAccessory as any).handleDoorStateChange('sauna', true);
 
-    saunaPowerPins?.forEach((pin: number) => {
+    saunagpioPowerPins?.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Sauna should remain on
     });
   });
@@ -92,14 +93,14 @@ describe('OpenSaunaAccessory Sauna Test', () => {
     // Simulate door open
     (saunaAccessory as any).handleDoorStateChange('sauna', true);
 
-    saunaPowerPins?.forEach((pin: number) => {
+    saunagpioPowerPins?.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Sauna should turn off
     });
 
     // Simulate door close
     (saunaAccessory as any).handleDoorStateChange('sauna', false);
 
-    saunaPowerPins?.forEach((pin: number) => {
+    saunagpioPowerPins?.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Sauna should turn back on
     });
   });
@@ -114,14 +115,13 @@ describe('OpenSaunaAccessory Sauna Test', () => {
     );
     (saunaAccessory as any).handleDoorStateChange('sauna', true);
 
-    console.log('expect sauna on');
-    saunaPowerPins?.forEach((pin: number) => {
+    saunagpioPowerPins?.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Sauna should turn off
     });
 
     (saunaAccessory as any).handleDoorStateChange('sauna', false);
 
-    saunaPowerPins?.forEach((pin: number) => {
+    saunagpioPowerPins?.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Sauna should turn back on
     });
   });
@@ -130,11 +130,6 @@ describe('OpenSaunaAccessory Sauna Test', () => {
     const safeTemperature = saunaConfig.saunaMaxTemperature - 5;
     mockDigitalWrite.mockClear();
 
-    // Mock the ADC read function to simulate a high temperature reading
-    (saunaAccessory as any).adc.read = jest.fn((callback) => {
-      callback(null, { value: safeTemperature });
-    });
-
     (saunaAccessory as any).handleStateSet(
       'sauna',
       platform.Characteristic.TargetHeatingCoolingState.HEAT
@@ -142,7 +137,7 @@ describe('OpenSaunaAccessory Sauna Test', () => {
 
     jest.advanceTimersByTime(saunaConfig.saunaTimeout * 1000);
 
-    saunaPowerPins?.forEach((pin: number) => {
+    saunagpioPowerPins?.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Sauna should turn off after timeout
     });
   });
@@ -151,25 +146,18 @@ describe('OpenSaunaAccessory Sauna Test', () => {
     const highTemperature = saunaConfig.saunaMaxTemperature + 5;
     mockDigitalWrite.mockClear();
 
-    // Mock the ADC read function to simulate a high temperature reading
-    (saunaAccessory as any).adc.read = jest.fn((callback) => {
-      callback(null, { value: highTemperature });
-    });
 
-    // Start the sauna
     (saunaAccessory as any).handleStateSet(
       'sauna',
       platform.Characteristic.TargetHeatingCoolingState.HEAT
-    );
+    ); // Start sauna
 
-    // Advance timers to simulate some time passing
-    jest.advanceTimersByTime(5000);
-
-    // Handle the high temperature scenario
+    // Manually trigger the temperature control logic
     (saunaAccessory as any).handleTemperatureControl('sauna', highTemperature);
 
-    // Expect that the sauna was turned off due to the high temperature
-    saunaPowerPins?.forEach((pin: number) => {
+    jest.advanceTimersByTime(5000);
+
+    saunagpioPowerPins?.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Sauna should turn off
     });
   });
@@ -182,30 +170,28 @@ describe('OpenSaunaAccessory Sauna Test', () => {
       platform.Characteristic.TargetHeatingCoolingState.HEAT
     );
 
-    // Turn off heater when above setpoint
+    // Simulate temperature going above the setpoint
     saunaAccessory['handleTemperatureControl']('sauna', 80);
-    saunaPowerPins?.forEach((pin: number) => {
-      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1);
+    saunagpioPowerPins?.forEach((pin: number) => {
+      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Heater should turn off
     });
 
-    // Turn on heater when below setpoint
+    // Simulate temperature going below the setpoint
     saunaAccessory['handleTemperatureControl']('sauna', 70);
-
-    saunaPowerPins?.forEach((pin: number) => {
-      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Sauna should turn off
+    saunagpioPowerPins?.forEach((pin: number) => {
+      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Heater should turn on
     });
 
-    // Turn off heater when above setpoint
+    // Simulate temperature going above the setpoint again
     saunaAccessory['handleTemperatureControl']('sauna', 80);
-    saunaPowerPins?.forEach((pin: number) => {
-      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1);
+    saunagpioPowerPins?.forEach((pin: number) => {
+      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Heater should turn off
     });
 
-    // Turn on heater when below setpoint
+    // Simulate temperature going below the setpoint again
     saunaAccessory['handleTemperatureControl']('sauna', 70);
-
-    saunaPowerPins?.forEach((pin: number) => {
-      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Sauna should turn off
+    saunagpioPowerPins?.forEach((pin: number) => {
+      expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 1); // Heater should turn on
     });
   });
 });

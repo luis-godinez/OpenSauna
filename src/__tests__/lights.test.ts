@@ -26,8 +26,8 @@ describe('OpenSaunaAccessory Lights Test', () => {
   });
 
   test('should turn on the light when lightPowerSwitch is set to true', () => {
-    const lightConfig = saunaConfig.relayPins.find((config) => config.system === 'light');
-    const lightPin = lightConfig?.GPIO[0];
+    const lightPins = saunaConfig.relayPins.find((config) => config.system === 'light');
+    const lightPin = lightPins?.GPIO[0];
 
     if (lightPin !== undefined) {
       // Simulate turning the light on
@@ -41,8 +41,8 @@ describe('OpenSaunaAccessory Lights Test', () => {
   });
 
   test('should turn off the light when lightPowerSwitch is set to false', () => {
-    const lightConfig = saunaConfig.relayPins.find((config) => config.system === 'light');
-    const lightPin = lightConfig?.GPIO[0];
+    const lightPins = saunaConfig.relayPins.find((config) => config.system === 'light');
+    const lightPin = lightPins?.GPIO[0];
 
     if (lightPin !== undefined) {
       // Simulate turning the light off
