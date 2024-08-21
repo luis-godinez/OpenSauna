@@ -15,21 +15,41 @@
       "steamDoorPin": 26,
       "inverseSteamDoor": false,
       "temperatureUnitFahrenheit": false,
+      "gpioPowerPins": [
+        {
+          "set": 27,
+          "reset": 22
+        },
+        {
+          "set": 4,
+          "reset": 17
+        }
+      ],
       "relayPins": [
         {
-          "GPIO": [16, 20],
+          "GPIO": [
+            16,
+            20
+          ],
           "system": "sauna"
         },
         {
-          "GPIO": [25, 24],
+          "GPIO": [
+            25,
+            24
+          ],
           "system": "steam"
         },
         {
-          "GPIO": [23],
+          "GPIO": [
+            23
+          ],
           "system": "light"
         },
         {
-          "GPIO": [18],
+          "GPIO": [
+            18
+          ],
           "system": "fan"
         }
       ],

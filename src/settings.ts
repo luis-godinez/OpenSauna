@@ -17,6 +17,7 @@ export interface OpenSaunaConfig {
   inverseSaunaDoor: boolean; // Door sensor setup: False for Normally-Closed, True for Normally-Open
   inverseSteamDoor: boolean; // Door sensor setup: False for Normally-Closed, True for Normally-Open
   temperatureUnitFahrenheit: boolean; // If true, temperatures are in Fahrenheit; otherwise, Celsius
+  gpioPowerPins: powerPin[]; // Controller specific relays for actuating 120V relays.
   relayPins: relayPin[]; // System to GPIO associations
   thermistors: thermistorConfig[]; // Configuration of auxiliary sensors
   saunaDoorPin: number;
@@ -31,6 +32,11 @@ export interface OpenSaunaConfig {
   steamMaxTemperature: number; // Maximum user-configurable temperature for the steam room in degrees
   steamSafetyTemperature: number; // Safety limit for steam room temperature in degrees (hard-coded)
   steamMaxHumidity: number; // Maximum user-configurable humidity for the steam room in percent
+}
+
+export interface powerPin {
+  set: number; // relay GPIO pin for set
+  reset: number; // relay GPIO pin for reset
 }
 
 export interface relayPin {

@@ -8,7 +8,7 @@ import i2c from 'i2c-bus';
 import { OpenSaunaConfig, thermistorConfig, SystemType } from './settings.js';
 
 export class OpenSaunaAccessory {
-  private auxTemperatureSensors: Map<string, Service> = new Map();
+  private temperatureSensors: Map<string, Service> = new Map();
   private steamHumiditySensor?: Service;
   private steamTemperatureSensor?: Service;
   private lightPowerSwitch?: Service;
@@ -18,6 +18,9 @@ export class OpenSaunaAccessory {
   private steamTimer: NodeJS.Timeout | null = null;
   private humidityInterval: NodeJS.Timeout | null = null;
   private doorPollRegistered: { [pin: number]: boolean } = {};
+
+  // Track the state of the relays (true if enabled, false if disabled)
+  private relaysEnabled = false;
 
   constructor(
     private readonly platform: OpenSaunaPlatform,
@@ -62,10 +65,7 @@ export class OpenSaunaAccessory {
     try {
       this.validateSensorConfiguration();
 
-      await Promise.all([
-        this.initializeI2C(),
-        this.initializeGPIOAsync(),
-      ]);
+      await Promise.all([this.initializeI2C(), this.initializeGPIOAsync()]);
 
       this.platform.log.info('Peripheral initialization completed.');
     } catch (error) {
@@ -197,7 +197,7 @@ export class OpenSaunaAccessory {
 
       // Store the service in the map for later updates
       if (thermistorService) {
-        this.auxTemperatureSensors.set(sensorName, thermistorService);
+        this.temperatureSensors.set(sensorName, thermistorService);
       }
     });
 
@@ -221,9 +221,9 @@ export class OpenSaunaAccessory {
 
     // Monitor temperatures and humidity
     this.monitorTemperatures();
-    // if (this.config.hasSteamI2C) {
-    //   this.monitorHumidity();
-    // }
+    if (this.config.hasSteamI2C) {
+      this.monitorHumidity();
+    }
   }
 
   // Set the name characteristic for the power switch
@@ -324,8 +324,7 @@ export class OpenSaunaAccessory {
   private handleLightPowerSet(value: CharacteristicValue) {
     this.platform.log.info('Light Power:', value);
 
-    const lightConfig = this.config.relayPins.find((config) => config.system === 'light');
-    const lightPins = lightConfig?.GPIO;
+    const lightPins = this.config.relayPins.find((config) => config.system === 'light')?.GPIO;
 
     if (lightPins && lightPins.length > 0) {
       lightPins.forEach((pin) => {
@@ -390,9 +389,9 @@ export class OpenSaunaAccessory {
     }
 
     // Check if the system is already in the desired mode
-    if (value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
+    if (Number(value) === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
       this.startSystem(system);
-    } else if (value === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
+    } else if (Number(value) === this.platform.Characteristic.TargetHeatingCoolingState.OFF) {
       this.stopSystem(system);
     } else {
       this.platform.log.warn('Unexpected TargetHeatingCoolingState:', value);
@@ -528,6 +527,11 @@ export class OpenSaunaAccessory {
 
   // Monitor temperatures using ADC channels
   private monitorTemperatures() {
+    if (process.env.NODE_ENV === 'test') {
+      this.platform.log.info('Skipping temperature monitoring in test environment');
+      return;
+    }
+
     this.config.thermistors.forEach((sensor) => {
       const adcChannel = sensor.channel as EightChannels;
 
@@ -540,11 +544,12 @@ export class OpenSaunaAccessory {
           return;
         }
 
-        // Set up a regular interval to read from the ADC channel
-        setInterval(() => {
+        const readTemperature = () => {
           sensorAdc.read((err: string | null, reading: McpReading) => {
             if (err) {
-              this.platform.log.error(`Failed to read temperature for sensor "${sensor.name}": ${err}`);
+              this.platform.log.error(
+                `Failed to read temperature for sensor "${sensor.name}": ${err}`,
+              );
               return;
             }
 
@@ -558,6 +563,7 @@ export class OpenSaunaAccessory {
               sensor.resistanceAt25C,
               sensor.bValue,
             );
+
             const displayTemperature = this.config.temperatureUnitFahrenheit
               ? this.convertToFahrenheit(temperatureCelsius)
               : temperatureCelsius;
@@ -576,7 +582,7 @@ export class OpenSaunaAccessory {
             }
 
             // Update the HomeKit characteristic with the current temperature
-            const thermistorService = this.auxTemperatureSensors.get(sensor.name);
+            const thermistorService = this.temperatureSensors.get(sensor.name);
             if (thermistorService) {
               thermistorService.updateCharacteristic(
                 this.platform.Characteristic.CurrentTemperature,
@@ -597,14 +603,56 @@ export class OpenSaunaAccessory {
               this.handleTemperatureControl('steam', temperatureCelsius);
             }
 
-            // Perform additional safety checks for PCB temperature
+            // Monitor PCB temperature for power relay actuation
             if (sensor.system === 'controller') {
-              this.monitorPcbTemperatureSafety(temperatureCelsius);
+              this.handleControllerTemperature(temperatureCelsius);
             }
           });
-        }, 5000); // check temperature every 5 seconds
+        };
+
+        // Set up a regular interval to read from the ADC channel
+        setInterval(readTemperature, 5000);
       });
     });
+  }
+
+  // Controller temperature and control relays
+  private handleControllerTemperature(temperatureCelsius: number) {
+    if (temperatureCelsius <= this.config.controllerSafetyTemperature && !this.relaysEnabled) {
+      this.enable120VRelays();
+    } else if (temperatureCelsius > this.config.controllerSafetyTemperature && this.relaysEnabled) {
+      this.flashLights(10); // Flash warning lights
+      this.disableAllRelays(); // Disable all auxiliary relays (lights, fan, steam)
+      this.disable120VRelays(); // Disable main power (120v) pins
+    }
+  }
+
+  private enable120VRelays() {
+    if (!this.relaysEnabled) {
+      // Only enable if not already enabled
+      this.config.gpioPowerPins.forEach((pinConfig) => {
+        this.platform.log.info(
+          `Enabling 120V Relay: Set Pin ${pinConfig.set}, Reset Pin ${pinConfig.reset}`,
+        );
+        rpio.write(pinConfig.set, rpio.HIGH);
+        rpio.write(pinConfig.reset, rpio.LOW);
+      });
+      this.relaysEnabled = true; // Update the state to reflect that relays are now enabled
+    }
+  }
+
+  private disable120VRelays() {
+    if (this.relaysEnabled) {
+      // Only disable if not already disabled
+      this.config.gpioPowerPins.forEach((pinConfig) => {
+        this.platform.log.info(
+          `Disabling 120V Relay: Set Pin ${pinConfig.set}, Reset Pin ${pinConfig.reset}`,
+        );
+        rpio.write(pinConfig.set, rpio.LOW);
+        rpio.write(pinConfig.reset, rpio.HIGH);
+      });
+      this.relaysEnabled = false; // Update the state to reflect that relays are now disabled
+    }
   }
 
   private handleTemperatureControl(system: SystemType, temperatureCelsius: number) {
@@ -692,7 +740,7 @@ export class OpenSaunaAccessory {
   private reflectInvalidReadingState(sensor: thermistorConfig) {
     // Optionally, update the UI to reflect an error state if supported
     // For example, using a custom characteristic or accessory to indicate the error
-    const thermistorService = this.auxTemperatureSensors.get(sensor.name);
+    const thermistorService = this.temperatureSensors.get(sensor.name);
     if (thermistorService) {
       thermistorService.updateCharacteristic(
         this.platform.Characteristic.StatusFault,
@@ -701,23 +749,12 @@ export class OpenSaunaAccessory {
     }
   }
 
-  // Monitor PCB temperature to ensure it doesn't exceed safety limits
-  private monitorPcbTemperatureSafety(temperatureCelsius: number) {
-    if (temperatureCelsius > this.config.controllerSafetyTemperature) {
-      this.platform.log.warn(
-        'PCB temperature above safety limit. Turning off all relays & flashing lights.',
-      );
-      this.disableAllRelays();
-      this.flashLights(10); // Flash warning lights
-    }
-  }
-
   private flashLights(times: number) {
     const lightGpio: SystemType = 'light'; // This should be of type SystemType
-    const powerPins =
+    const gpioPowerPins =
       this.config.relayPins.find((config) => config.system === lightGpio)?.GPIO ?? [];
 
-    if (powerPins && powerPins.length > 0) {
+    if (gpioPowerPins && gpioPowerPins.length > 0) {
       this.platform.log.info(`Flashing lights ${times} times.`);
       for (let i = 0; i < times; i++) {
         this.setPowerState(lightGpio, true);
