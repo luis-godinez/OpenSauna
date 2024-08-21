@@ -11,7 +11,6 @@ export interface OpenSaunaConfig {
   hasSauna: boolean; // Indicates if the sauna is present
   hasSaunaSplitPhase: boolean; // Indicates if the sauna uses split phase power
   hasSteam: boolean; // Indicates if the steam room is present
-  hasSteamI2C: boolean; // Indicates if the I2C sensor the  I2C humidity/temp sensor is available
   hasLight: boolean; // Indicates if a light control is available
   hasFan: boolean; // Indicates if a fan control is available
   inverseSaunaDoor: boolean; // Door sensor setup: False for Normally-Closed, True for Normally-Open
@@ -31,7 +30,6 @@ export interface OpenSaunaConfig {
   saunaSafetyTemperature: number; // Safety limit for sauna temperature in degrees (hard-coded)
   steamMaxTemperature: number; // Maximum user-configurable temperature for the steam room in degrees
   steamSafetyTemperature: number; // Safety limit for steam room temperature in degrees (hard-coded)
-  steamMaxHumidity: number; // Maximum user-configurable humidity for the steam room in percent
 }
 
 export interface powerPin {

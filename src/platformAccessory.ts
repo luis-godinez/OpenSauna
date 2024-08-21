@@ -4,19 +4,14 @@ import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { OpenSaunaPlatform } from './platform.js';
 import rpio from 'rpio';
 import { openMcp3008, McpInterface, McpReading, EightChannels } from 'mcp-spi-adc';
-import i2c from 'i2c-bus';
 import { OpenSaunaConfig, thermistorConfig, SystemType } from './settings.js';
 
 export class OpenSaunaAccessory {
   private temperatureSensors: Map<string, Service> = new Map();
-  private steamHumiditySensor?: Service;
-  private steamTemperatureSensor?: Service;
   private lightPowerSwitch?: Service;
   private fanPowerSwitch?: Service;
-  private i2cBus!: i2c.PromisifiedBus;
   private saunaTimer: NodeJS.Timeout | null = null;
   private steamTimer: NodeJS.Timeout | null = null;
-  private humidityInterval: NodeJS.Timeout | null = null;
   private doorPollRegistered: { [pin: number]: boolean } = {};
 
   // Track the state of the relays (true if enabled, false if disabled)
@@ -65,7 +60,7 @@ export class OpenSaunaAccessory {
     try {
       this.validateSensorConfiguration();
 
-      await Promise.all([this.initializeI2C(), this.initializeGPIOAsync()]);
+      await Promise.all([this.initializeGPIOAsync()]);
 
       this.platform.log.info('Peripheral initialization completed.');
     } catch (error) {
@@ -126,25 +121,6 @@ export class OpenSaunaAccessory {
     });
   }
 
-  // Initialize the I2C bus with error handling and optional timeout
-  private initializeI2C(): Promise<void> {
-    if (!this.config.hasSteamI2C) {
-      this.platform.log.info('I2C initialization skipped as hasSteamI2C is set to false.');
-      return Promise.resolve();
-    }
-
-    return i2c
-      .openPromisified(1)
-      .then((bus) => {
-        this.i2cBus = bus;
-        this.platform.log.info('I2C bus opened successfully.');
-      })
-      .catch((err) => {
-        this.platform.log.error('Failed to open I2C bus:', err);
-        throw err;
-      });
-  }
-
   private setupAccessory() {
     // GPIO initialization is already done in initializeGPIOAsync
     // Setup other services and monitoring
@@ -189,10 +165,9 @@ export class OpenSaunaAccessory {
       }
     });
 
-    // Setup steam temperature and humidity sensors
+    // Setup steam temperature
     if (this.config.hasSteam) {
-      this.steamTemperatureSensor = this.addTemperatureSensorService('Steam Temperature', 'steam-temperature');
-      this.steamHumiditySensor = this.addHumiditySensorService('Steam Humidity', 'steam-humidity');
+      this.addTemperatureSensorService('Steam Temperature', 'steam-temperature');
     }
 
     // Setup door sensors
@@ -204,11 +179,8 @@ export class OpenSaunaAccessory {
       this.addContactSensorService('Steam Door', 'steam-door');
     }
 
-    // Monitor temperatures and humidity
+    // Monitor temperatures
     this.monitorTemperatures();
-    if (this.config.hasSteamI2C) {
-      this.monitorHumidity();
-    }
   }
 
   // Set the name characteristic for the power switch
@@ -278,15 +250,6 @@ export class OpenSaunaAccessory {
       this.accessory.addService(this.platform.Service.TemperatureSensor, name, subtype);
     tempService.setCharacteristic(this.platform.Characteristic.Name, name); // Set the name
     return tempService;
-  }
-
-  // Set the name characteristic for the humidity sensor
-  private addHumiditySensorService(name: string, subtype: string): Service {
-    const humidityService =
-      this.accessory.getService(subtype) ||
-      this.accessory.addService(this.platform.Service.HumiditySensor, name, subtype);
-    humidityService.setCharacteristic(this.platform.Characteristic.Name, name); // Set the name
-    return humidityService;
   }
 
   // Set the name characteristic for the contact sensor
@@ -728,48 +691,6 @@ export class OpenSaunaAccessory {
     this.platform.log.info('All relays have been disabled.');
   }
 
-  // [ToDo] Revisit as this isn't tested nor understood. Remove that hard coded system name in stopSystem().
-  private monitorHumidity() {
-    this.humidityInterval = setInterval(async () => {
-      try {
-        await this.i2cBus.writeByte(0x5c, 0x00, 0x00);
-        await new Promise((resolve) => setTimeout(resolve, 1)); // Delay for wake-up
-        const buffer = Buffer.alloc(8);
-        await this.i2cBus.readI2cBlock(0x5c, 0x03, 8, buffer);
-
-        const humidity = ((buffer[2] << 8) + buffer[3]) / 10.0;
-        const temperatureCelsius = ((buffer[4] << 8) + buffer[5]) / 10.0;
-        const displayTemperature = this.config.temperatureUnitFahrenheit
-          ? this.convertToFahrenheit(temperatureCelsius)
-          : temperatureCelsius;
-
-        this.platform.log.info(`Steam Humidity: ${humidity} %`);
-        this.platform.log.info(
-          `Steam Temperature: ${displayTemperature.toFixed(2)} °${this.config.temperatureUnitFahrenheit ? 'F' : 'C'}`,
-        );
-
-        if (this.steamHumiditySensor) {
-          this.steamHumiditySensor.updateCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, humidity);
-        }
-
-        if (this.steamTemperatureSensor) {
-          this.steamTemperatureSensor.updateCharacteristic(
-            this.platform.Characteristic.CurrentTemperature,
-            displayTemperature,
-          );
-        }
-
-        if (humidity > this.config.steamMaxHumidity) {
-          this.platform.log.warn('Steam humidity exceeded max humidity. Steam power off.');
-          this.stopSystem('steam'); //Power off
-        }
-      } catch (err) {
-        this.platform.log.error(`Failed to read humidity and temperature: ${(err as Error).message}`);
-        this.stopSystem('steam'); // Power off
-      }
-    }, 10000); // Check humidity every 10 seconds
-  }
-
   public getPlatform(): OpenSaunaPlatform {
     return this.platform;
   }
@@ -782,11 +703,6 @@ export class OpenSaunaAccessory {
     if (this.steamTimer) {
       clearTimeout(this.steamTimer);
       this.steamTimer = null;
-    }
-
-    if (this.humidityInterval) {
-      clearInterval(this.humidityInterval);
-      this.humidityInterval = null;
     }
   }
 

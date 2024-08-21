@@ -7,7 +7,6 @@
       "serial": "1234567890",
       "hasSauna": true,
       "hasSteam": true,
-      "hasSteamI2C": false,
       "hasLight": true,
       "hasFan": true,
       "saunaDoorPin": 19,
@@ -27,19 +26,29 @@
       ],
       "relayPins": [
         {
-          "GPIO": [16, 20],
+          "GPIO": [
+            16,
+            20
+          ],
           "system": "sauna"
         },
         {
-          "GPIO": [25, 24],
+          "GPIO": [
+            25,
+            24
+          ],
           "system": "steam"
         },
         {
-          "GPIO": [23],
+          "GPIO": [
+            23
+          ],
           "system": "light"
         },
         {
-          "GPIO": [18],
+          "GPIO": [
+            18
+          ],
           "system": "fan"
         }
       ],
@@ -85,8 +94,7 @@
       "saunaMaxTemperature": 100,
       "saunaSafetyTemperature": 120,
       "steamMaxTemperature": 60,
-      "steamSafetyTemperature": 60,
-      "steamMaxHumidity": 60
+      "steamSafetyTemperature": 60
     }
   ]
 }

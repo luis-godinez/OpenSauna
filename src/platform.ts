@@ -15,11 +15,7 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
   public readonly Characteristic: typeof Characteristic;
   public readonly accessories: PlatformAccessory[] = [];
 
-  constructor(
-    public readonly log: Logger,
-    public readonly config: PlatformConfig,
-    public readonly api: API,
-  ) {
+  constructor(public readonly log: Logger, public readonly config: PlatformConfig, public readonly api: API) {
     this.Service = this.api.hap.Service;
     this.Characteristic = this.api.hap.Characteristic;
 
@@ -53,7 +49,6 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     devices.steamTimeout = devices.steamTimeout ?? 60; // in minutes
     devices.saunaMaxTemperature = devices.saunaMaxTemperature ?? (devices.temperatureUnitFahrenheit ? 212 : 100);
     devices.steamMaxTemperature = devices.steamMaxTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
-    devices.steamMaxHumidity = devices.steamMaxHumidity ?? 60; // in percent
     devices.saunaSafetyTemperature = devices.saunaSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 248 : 120);
     devices.steamSafetyTemperature = devices.steamSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
     devices.controllerSafetyTemperature =
@@ -111,7 +106,6 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
       'hasSauna',
       'hasSaunaSplitPhase',
       'hasSteam',
-      'hasSteamI2C',
       'hasLight',
       'hasFan',
       'saunaDoorPin',
@@ -130,7 +124,6 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
       'saunaSafetyTemperature',
       'steamMaxTemperature',
       'steamSafetyTemperature',
-      'steamMaxHumidity',
     ];
 
     // Validate that all required keys are present
