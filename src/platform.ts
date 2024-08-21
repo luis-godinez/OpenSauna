@@ -99,23 +99,23 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
 
     // Validate the presence of required properties
     const requiredKeys: Array<keyof OpenSaunaConfig> = [
+      'manufacturer',
       'platform',
       'name',
-      'manufacturer',
       'serial',
       'hasSauna',
-      'hasSaunaSplitPhase',
       'hasSteam',
       'hasLight',
       'hasFan',
-      'saunaDoorPin',
       'inverseSaunaDoor',
-      'steamDoorPin',
       'inverseSteamDoor',
       'temperatureUnitFahrenheit',
+      'gpioPowerPins',
       'relayPins',
       'thermistors',
+      'saunaDoorPin',
       'saunaOnWhileDoorOpen',
+      'steamDoorPin',
       'steamOnWhileDoorOpen',
       'saunaTimeout',
       'steamTimeout',
@@ -128,7 +128,9 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
 
     // Validate that all required keys are present
     for (const key of requiredKeys) {
+      this.log.info('validating key:', key);
       if (!(key in config)) {
+        this.log.warn(key, 'missing from config.');
         return false;
       }
     }

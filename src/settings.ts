@@ -9,7 +9,6 @@ export interface OpenSaunaConfig {
   name: string; // Custom name for the sauna system
   serial: string; // Custom serial for the sauna system
   hasSauna: boolean; // Indicates if the sauna is present
-  hasSaunaSplitPhase: boolean; // Indicates if the sauna uses split phase power
   hasSteam: boolean; // Indicates if the steam room is present
   hasLight: boolean; // Indicates if a light control is available
   hasFan: boolean; // Indicates if a fan control is available
