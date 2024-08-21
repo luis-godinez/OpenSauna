@@ -12,14 +12,13 @@ export interface OpenSaunaConfig {
   hasSaunaSplitPhase: boolean; // Indicates if the sauna uses split phase power
   hasSteam: boolean; // Indicates if the steam room is present
   hasSteamI2C: boolean; // Indicates if the I2C sensor the  I2C humidity/temp sensor is available
-  hasSteamSplitPhase: boolean; // Indicates if the steam room uses split phase power
   hasLight: boolean; // Indicates if a light control is available
   hasFan: boolean; // Indicates if a fan control is available
   inverseSaunaDoor: boolean; // Door sensor setup: False for Normally-Closed, True for Normally-Open
   inverseSteamDoor: boolean; // Door sensor setup: False for Normally-Closed, True for Normally-Open
   temperatureUnitFahrenheit: boolean; // If true, temperatures are in Fahrenheit; otherwise, Celsius
-  gpioConfigs: GpioConfig[]; // System to GPIO associations
-  auxSensors: AuxSensorConfig[]; // Configuration of auxiliary sensors
+  relayPins: relayPin[]; // System to GPIO associations
+  thermistors: thermistorConfig[]; // Configuration of auxiliary sensors
   saunaDoorPin: number;
   saunaOnWhileDoorOpen: boolean; // Allows the sauna to be on while the door is open
   steamDoorPin: number;
@@ -34,12 +33,12 @@ export interface OpenSaunaConfig {
   steamMaxHumidity: number; // Maximum user-configurable humidity for the steam room in percent
 }
 
-export interface GpioConfig {
-  gpioPins: number[]; // GPIO pins for power control
+export interface relayPin {
+  GPIO: number[]; // GPIO pins for power control
   system: SystemType; // System type associated with these power pins
 }
 
-export interface AuxSensorConfig {
+export interface thermistorConfig {
   name: string; // Name of the auxiliary sensor
   channel: number; // ADC channel number associated with the sensor
   system: 'sauna' | 'steam' | 'controller' | null; // The sensor to system association, or null if not associated

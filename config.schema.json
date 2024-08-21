@@ -90,7 +90,7 @@
         "description": "True for Fahrenheit, False for Celsius.",
         "default": false
       },
-      "gpioPins": {
+      "GPIO": {
         "type": "object",
         "title": "GPIO Pins Configuration",
         "properties": {
@@ -138,7 +138,7 @@
           }
         }
       },
-      "auxSensors": {
+      "thermistors": {
         "type": "array",
         "title": "Auxiliary Sensors",
         "description": "Array of auxiliary sensors for additional readings.",

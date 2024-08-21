@@ -6,10 +6,8 @@
       "name": "OpenSauna",
       "serial": "1234567890",
       "hasSauna": true,
-      "hasSaunaSplitPhase": true,
       "hasSteam": true,
       "hasSteamI2C": false,
-      "hasSteamSplitPhase": false,
       "hasLight": true,
       "hasFan": true,
       "saunaDoorPin": 19,
@@ -17,35 +15,27 @@
       "steamDoorPin": 26,
       "inverseSteamDoor": false,
       "temperatureUnitFahrenheit": false,
-      "gpioConfigs": [
+      "relayPins": [
         {
-          "gpioPins": [16, 20],
+          "GPIO": [16, 20],
           "system": "sauna"
         },
         {
-          "gpioPins": [25, 24],
+          "GPIO": [25, 24],
           "system": "steam"
         },
         {
-          "gpioPins": [23],
+          "GPIO": [23],
           "system": "light"
         },
         {
-          "gpioPins": [18],
+          "GPIO": [18],
           "system": "fan"
-        },
-        {
-          "gpioPins": [19],
-          "system": "sauna"
-        },
-        {
-          "gpioPins": [26],
-          "system": "steam"
         }
       ],
-      "auxSensors": [
+      "thermistors": [
         {
-          "name": "PCB_NTC",
+          "name": "Controller",
           "channel": 0,
           "system": "controller",
           "control": false,
@@ -53,7 +43,7 @@
           "bValue": 3977
         },
         {
-          "name": "SAUNA_NTC",
+          "name": "Sauna",
           "channel": 1,
           "system": "sauna",
           "control": true,
@@ -61,8 +51,8 @@
           "bValue": 3950
         },
         {
-          "name": "STEAM_NTC",
-          "channel": 1,
+          "name": "Steam",
+          "channel": 2,
           "system": "steam",
           "control": true,
           "resistanceAt25C": 10000,
@@ -70,7 +60,7 @@
         },
         {
           "name": "Outside",
-          "channel": 2,
+          "channel": 3,
           "system": null,
           "control": false,
           "resistanceAt25C": 10000,

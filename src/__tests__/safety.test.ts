@@ -24,15 +24,15 @@ describe('OpenSaunaAccessory Safety Test', () => {
     process.removeAllListeners('SIGTERM');
   });
 
-  const saunaGpioConfig = saunaConfig.gpioConfigs.find((config) => config.system === 'sauna');
-  const lightConfig = saunaConfig.gpioConfigs.find((config) => config.system === 'light');
+  const saunarelayPin = saunaConfig.relayPins.find((config) => config.system === 'sauna');
+  const lightConfig = saunaConfig.relayPins.find((config) => config.system === 'light');
 
   test('controller overheat: turn off all relays and flash lights if PCB temperature exceeds safety limit', () => {
     // Simulate PCB temperature exceeding the safety limit
     saunaAccessory['monitorPcbTemperatureSafety'](saunaConfig.controllerSafetyTemperature + 10);
 
-    saunaConfig.gpioConfigs.forEach((config) => {
-      config.gpioPins.forEach((pin: number) => {
+    saunaConfig.relayPins.forEach((config) => {
+      config.GPIO.forEach((pin: number) => {
         expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Turn off power
       });
     });
@@ -40,7 +40,7 @@ describe('OpenSaunaAccessory Safety Test', () => {
     // Check for flashing sequence
     const flashingSequence = 10 * 2; // 10 flashes (on + off)
     const expectedCalls =
-      saunaConfig.gpioConfigs.reduce((count, config) => count + config.gpioPins.length, 0) +
+      saunaConfig.relayPins.reduce((count, config) => count + config.GPIO.length, 0) +
       flashingSequence;
     expect(mockDigitalWrite).toHaveBeenCalledTimes(expectedCalls); // Flashing lights + turn off commands
   });
@@ -59,13 +59,13 @@ describe('OpenSaunaAccessory Safety Test', () => {
     // Simulate exceeding the max temperature
     saunaAccessory['handleTemperatureControl']('sauna', 130); // Exceeds max temperature
 
-    saunaGpioConfig?.gpioPins.forEach((pin: number) => {
+    saunarelayPin?.GPIO.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Turn off sauna power
     });
 
     // Check for flashing sequence
     const flashingSequence = 10 * 2; // 10 flashes (on + off)
-    const expectedCalls = (saunaGpioConfig?.gpioPins.length || 0) + flashingSequence + 1; // plus 1 for light turned on
+    const expectedCalls = (saunarelayPin?.GPIO.length || 0) + flashingSequence + 1; // plus 1 for light turned on
     expect(mockDigitalWrite).toHaveBeenCalledTimes(expectedCalls);
   });
 
@@ -75,7 +75,7 @@ describe('OpenSaunaAccessory Safety Test', () => {
     // Simulate no signal
     saunaAccessory['handleTemperatureControl']('sauna', NaN);
 
-    saunaGpioConfig?.gpioPins.forEach((pin: number) => {
+    saunarelayPin?.GPIO.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Ensure sauna power is off
     });
   });
@@ -86,7 +86,7 @@ describe('OpenSaunaAccessory Safety Test', () => {
     // Simulate invalid temperature
     saunaAccessory['handleTemperatureControl']('sauna', -50);
 
-    saunaGpioConfig?.gpioPins.forEach((pin: number) => {
+    saunarelayPin?.GPIO.forEach((pin: number) => {
       expect(mockDigitalWrite).toHaveBeenCalledWith(pin, 0); // Ensure sauna power is off
     });
   });

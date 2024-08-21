@@ -5,7 +5,7 @@ import { OpenSaunaPlatform } from './platform.js';
 import rpio from 'rpio';
 import { openMcp3008, McpInterface, McpReading, EightChannels } from 'mcp-spi-adc';
 import i2c from 'i2c-bus';
-import { OpenSaunaConfig, AuxSensorConfig, SystemType } from './settings.js';
+import { OpenSaunaConfig, thermistorConfig, SystemType } from './settings.js';
 
 export class OpenSaunaAccessory {
   private auxTemperatureSensors: Map<string, Service> = new Map();
@@ -41,16 +41,16 @@ export class OpenSaunaAccessory {
       })
       .catch((error) => {
         this.platform.log.error('Initialization failed:', error);
-        this.cleanupGpioPins(); // Ensure GPIO pins are cleaned up on error
+        this.cleanupGPIO(); // Ensure GPIO pins are cleaned up on error
       });
 
-    process.on('exit', this.cleanupGpioPins.bind(this));
+    process.on('exit', this.cleanupGPIO.bind(this));
     process.on('SIGINT', () => {
-      this.cleanupGpioPins();
+      this.cleanupGPIO();
       process.exit();
     });
     process.on('SIGTERM', () => {
-      this.cleanupGpioPins();
+      this.cleanupGPIO();
       process.exit();
     });
   }
@@ -64,7 +64,7 @@ export class OpenSaunaAccessory {
 
       await Promise.all([
         this.initializeI2C(),
-        this.initializeGpioPinsAsync(),
+        this.initializeGPIOAsync(),
       ]);
 
       this.platform.log.info('Peripheral initialization completed.');
@@ -77,7 +77,7 @@ export class OpenSaunaAccessory {
   private validateSensorConfiguration() {
     const systemCount: { [key: string]: number } = {};
 
-    this.config.auxSensors.forEach((sensor) => {
+    this.config.thermistors.forEach((sensor) => {
       if (sensor.system) {
         if (!systemCount[sensor.system]) {
           systemCount[sensor.system] = 0;
@@ -94,10 +94,10 @@ export class OpenSaunaAccessory {
   }
 
   // Initialize GPIO pins asynchronously with error handling
-  private async initializeGpioPinsAsync() {
+  private async initializeGPIOAsync() {
     try {
-      this.config.gpioConfigs.forEach((config) => {
-        config.gpioPins.forEach((pin) => {
+      this.config.relayPins.forEach((config) => {
+        config.GPIO.forEach((pin) => {
           // Determine the direction and pull state based on the system
           if (
             config.system === 'sauna' ||
@@ -118,9 +118,9 @@ export class OpenSaunaAccessory {
   }
 
   // Close GPIO pins during cleanup
-  private cleanupGpioPins() {
-    this.config.gpioConfigs.forEach((config) => {
-      config.gpioPins.forEach((pin) => {
+  private cleanupGPIO() {
+    this.config.relayPins.forEach((config) => {
+      config.GPIO.forEach((pin) => {
         rpio.close(pin);
       });
     });
@@ -146,7 +146,7 @@ export class OpenSaunaAccessory {
   }
 
   private setupAccessory() {
-    // GPIO initialization is already done in initializeGpioPinsAsync
+    // GPIO initialization is already done in initializeGPIOAsync
     // Setup other services and monitoring
 
     // Setup thermostats based on config
@@ -185,9 +185,9 @@ export class OpenSaunaAccessory {
     }
 
     // Setup auxiliary temperature sensors
-    this.config.auxSensors.forEach((sensor) => {
+    this.config.thermistors.forEach((sensor) => {
       const sensorName = sensor.name;
-      const auxSensorService =
+      const thermistorService =
         this.accessory.getService(sensorName) ||
         this.accessory.addService(
           this.platform.Service.TemperatureSensor,
@@ -196,8 +196,8 @@ export class OpenSaunaAccessory {
         );
 
       // Store the service in the map for later updates
-      if (auxSensorService) {
-        this.auxTemperatureSensors.set(sensorName, auxSensorService);
+      if (thermistorService) {
+        this.auxTemperatureSensors.set(sensorName, thermistorService);
       }
     });
 
@@ -324,8 +324,8 @@ export class OpenSaunaAccessory {
   private handleLightPowerSet(value: CharacteristicValue) {
     this.platform.log.info('Light Power:', value);
 
-    const lightConfig = this.config.gpioConfigs.find((config) => config.system === 'light');
-    const lightPins = lightConfig?.gpioPins;
+    const lightConfig = this.config.relayPins.find((config) => config.system === 'light');
+    const lightPins = lightConfig?.GPIO;
 
     if (lightPins && lightPins.length > 0) {
       lightPins.forEach((pin) => {
@@ -342,8 +342,8 @@ export class OpenSaunaAccessory {
   private handleFanPowerSet(value: CharacteristicValue) {
     this.platform.log.info('Fan Power:', value);
 
-    const fanConfig = this.config.gpioConfigs.find((config) => config.system === 'fan');
-    const fanPins = fanConfig?.gpioPins;
+    const fanConfig = this.config.relayPins.find((config) => config.system === 'fan');
+    const fanPins = fanConfig?.GPIO;
 
     if (fanPins && fanPins.length > 0) {
       fanPins.forEach((pin) => {
@@ -504,7 +504,7 @@ export class OpenSaunaAccessory {
 
   // Utility to set power state on GPIO for thermostats & switches
   private setPowerState(system: SystemType, state: boolean) {
-    const gpioPins = this.config.gpioConfigs.find((config) => config.system === system)?.gpioPins;
+    const GPIO = this.config.relayPins.find((config) => config.system === system)?.GPIO;
 
     const thermostatService = this.accessory.getService(`${system}-thermostat`);
     if (thermostatService) {
@@ -520,7 +520,7 @@ export class OpenSaunaAccessory {
 
     // Set the GPIO pins based on the state
     const powerState = state ? rpio.HIGH : rpio.LOW;
-    gpioPins?.forEach((pin, index) => {
+    GPIO?.forEach((pin, index) => {
       this.platform.log.info(`${system}: setPowerState --> ${pin} ${state ? 'ON' : 'OFF'}`);
       rpio.write(pin, powerState);
     });
@@ -528,7 +528,7 @@ export class OpenSaunaAccessory {
 
   // Monitor temperatures using ADC channels
   private monitorTemperatures() {
-    this.config.auxSensors.forEach((sensor) => {
+    this.config.thermistors.forEach((sensor) => {
       const adcChannel = sensor.channel as EightChannels;
 
       // Open ADC channel for each sensor independently
@@ -576,9 +576,9 @@ export class OpenSaunaAccessory {
             }
 
             // Update the HomeKit characteristic with the current temperature
-            const auxSensorService = this.auxTemperatureSensors.get(sensor.name);
-            if (auxSensorService) {
-              auxSensorService.updateCharacteristic(
+            const thermistorService = this.auxTemperatureSensors.get(sensor.name);
+            if (thermistorService) {
+              thermistorService.updateCharacteristic(
                 this.platform.Characteristic.CurrentTemperature,
                 displayTemperature,
               );
@@ -689,12 +689,12 @@ export class OpenSaunaAccessory {
   }
 
   // Method to reflect invalid sensor state in the HomeKit UI or log
-  private reflectInvalidReadingState(sensor: AuxSensorConfig) {
+  private reflectInvalidReadingState(sensor: thermistorConfig) {
     // Optionally, update the UI to reflect an error state if supported
     // For example, using a custom characteristic or accessory to indicate the error
-    const auxSensorService = this.auxTemperatureSensors.get(sensor.name);
-    if (auxSensorService) {
-      auxSensorService.updateCharacteristic(
+    const thermistorService = this.auxTemperatureSensors.get(sensor.name);
+    if (thermistorService) {
+      thermistorService.updateCharacteristic(
         this.platform.Characteristic.StatusFault,
         this.platform.Characteristic.StatusFault.GENERAL_FAULT,
       );
@@ -715,7 +715,7 @@ export class OpenSaunaAccessory {
   private flashLights(times: number) {
     const lightGpio: SystemType = 'light'; // This should be of type SystemType
     const powerPins =
-      this.config.gpioConfigs.find((config) => config.system === lightGpio)?.gpioPins ?? [];
+      this.config.relayPins.find((config) => config.system === lightGpio)?.GPIO ?? [];
 
     if (powerPins && powerPins.length > 0) {
       this.platform.log.info(`Flashing lights ${times} times.`);
@@ -731,10 +731,10 @@ export class OpenSaunaAccessory {
 
   // Disable all relays and flash warning lights
   private disableAllRelays() {
-    // Iterate through each configuration in gpioConfigs
-    this.config.gpioConfigs.forEach((config) => {
-      // For each system, turn off all associated gpioPins
-      config.gpioPins.forEach((pin) => {
+    // Iterate through each configuration in relayPins
+    this.config.relayPins.forEach((config) => {
+      // For each system, turn off all associated GPIO
+      config.GPIO.forEach((pin) => {
         rpio.write(pin, rpio.LOW);
       });
     });

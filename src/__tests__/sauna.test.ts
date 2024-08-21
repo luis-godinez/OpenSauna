@@ -24,9 +24,9 @@ describe('OpenSaunaAccessory Sauna Test', () => {
     process.removeAllListeners('SIGTERM');
   });
 
-  const saunaPowerPins = saunaConfig.gpioConfigs.find(
+  const saunaPowerPins = saunaConfig.relayPins.find(
     (config) => config.system === 'sauna'
-  )?.gpioPins;
+  )?.GPIO;
 
   it('should turn on sauna when switching to HEAT mode and sauna is not running', () => {
     (saunaAccessory as any).handleStateSet(
