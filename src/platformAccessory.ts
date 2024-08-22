@@ -51,6 +51,18 @@ export class OpenSaunaAccessory {
       this.cleanupGPIO();
       process.exit();
     });
+
+    process.on('uncaughtException', (err) => {
+      this.platform.log.error('Uncaught Exception:', err);
+      this.cleanupGPIO(); // Ensure GPIO pins are cleaned up on error
+      process.exit(1);
+    });
+
+    process.on('unhandledRejection', (reason, p) => {
+      this.platform.log.error('Unhandled Rejection at:', p, 'reason:', reason);
+      this.cleanupGPIO(); // Ensure GPIO pins are cleaned up on error
+      process.exit(1);
+    });
   }
 
   // Initialize all hardware peripherals asynchronously with error handling
@@ -442,11 +454,16 @@ export class OpenSaunaAccessory {
   private setPowerState(system: SystemType, state: boolean) {
     const GPIO = this.config.relayPins.find((config) => config.system === system)?.GPIO;
 
+    if (!GPIO || GPIO.length === 0) {
+      this.platform.log.warn(`No GPIO pins configured for ${system}.`);
+      return;
+    }
+
     const thermostatService = this.accessory.getService(`${system}-thermostat`);
     if (thermostatService) {
       // Update the CurrentHeatingCoolingState
       thermostatService
-        ?.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
+        .getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
         .updateValue(
           state
             ? this.platform.Characteristic.CurrentHeatingCoolingState.HEAT
@@ -632,11 +649,9 @@ export class OpenSaunaAccessory {
         this.platform.Characteristic.CurrentHeatingCoolingState,
       ).value;
 
-      const service = this.accessory.getService(`${system}-thermostat`);
-
       if (
-        // If in HEAT mode and temperature is below target, turn on the heater
-        currentMode === this.platform.Characteristic.CurrentHeatingCoolingState.HEAT &&
+        // If not in HEAT mode and temperature is below target, turn on the heater
+        currentMode !== this.platform.Characteristic.CurrentHeatingCoolingState.HEAT &&
         temperatureCelsius < targetTemperature
       ) {
         this.platform.log.info(`${system} below setpoint.`);
