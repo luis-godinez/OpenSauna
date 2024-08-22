@@ -91,21 +91,25 @@ export class OpenSaunaAccessory {
   // Initialize GPIO pins asynchronously with error handling
   private async initializeGPIOAsync() {
     try {
+      // Initialize relay pins
       this.config.relayPins.forEach((config) => {
         config.GPIO.forEach((pin) => {
-          // Determine the direction and pull state based on the system
-          if (
-            config.system === 'sauna' ||
-            config.system === 'steam' ||
-            config.system === 'light' ||
-            config.system === 'fan'
-          ) {
-            rpio.open(pin, rpio.OUTPUT, rpio.LOW); // Open as OUTPUT and set to LOW
-          } else if (config.system === 'saunaDoor' || config.system === 'steamDoor') {
-            rpio.open(pin, rpio.INPUT, rpio.PULL_DOWN); // Open as INPUT with pull-down
-          }
+          // Open pins associated with systems like sauna, steam, light, fan as OUTPUT and set to LOW
+          rpio.open(pin, rpio.OUTPUT, rpio.LOW); // Open as OUTPUT and set to LOW
         });
       });
+
+      // Initialize sauna door pin
+      if (this.config.saunaDoorPin !== undefined) {
+        const pullState = this.config.saunaDoorNO ? rpio.PULL_DOWN : rpio.PULL_UP;
+        rpio.open(this.config.saunaDoorPin, rpio.INPUT, pullState); // Open as INPUT with appropriate pull state
+      }
+
+      // Initialize steam door pin
+      if (this.config.steamDoorPin !== undefined) {
+        const pullState = this.config.steamDoorNO ? rpio.PULL_DOWN : rpio.PULL_UP;
+        rpio.open(this.config.steamDoorPin, rpio.INPUT, pullState); // Open as INPUT with appropriate pull state
+      }
     } catch (error) {
       this.platform.log.error('Failed to initialize GPIO pins:', error);
       throw error;
@@ -714,11 +718,11 @@ export class OpenSaunaAccessory {
 
     if (system === 'sauna') {
       doorSensor = this.config.saunaDoorPin;
-      inverse = this.config.inverseSaunaDoor;
+      inverse = this.config.saunaDoorNO;
       allowOnWhileOpen = this.config.saunaOnWhileDoorOpen;
     } else if (system === 'steam') {
       doorSensor = this.config.steamDoorPin;
-      inverse = this.config.inverseSteamDoor;
+      inverse = this.config.steamDoorNO;
       allowOnWhileOpen = this.config.steamOnWhileDoorOpen;
     } else {
       return;

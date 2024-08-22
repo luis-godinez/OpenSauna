@@ -162,7 +162,7 @@ export function createTestPlatformAndAccessory() {
 
   (saunaAccessory as any).handleDoorStateChange = (doorType: DoorType, doorOpen: boolean) => {
     const pin = doorType === "sauna" ? saunaConfig.saunaDoorPin : saunaConfig.steamDoorPin;
-    const inverse = doorType === "sauna" ? saunaConfig.inverseSaunaDoor : saunaConfig.inverseSteamDoor;
+    const inverse = doorType === "sauna" ? saunaConfig.saunaDoorNO : saunaConfig.steamDoorNO;
     const expectedLevel = inverse ? (doorOpen ? 0 : 1) : doorOpen ? 1 : 0;
 
     mockRead.mockReturnValueOnce(expectedLevel);

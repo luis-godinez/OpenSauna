@@ -10,9 +10,9 @@
       "hasLight": true,
       "hasFan": true,
       "saunaDoorPin": 19,
-      "inverseSaunaDoor": false,
+      "saunaDoorNO": false,
       "steamDoorPin": 26,
-      "inverseSteamDoor": false,
+      "steamDoorNO": false,
       "temperatureUnitFahrenheit": false,
       "gpioPowerPins": [
         {

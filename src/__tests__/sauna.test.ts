@@ -94,9 +94,9 @@ describe('OpenSaunaAccessory Sauna Test', () => {
     });
   });
 
-  it('should turn off sauna heater when door opens if saunaOnWhileDoorOpen is false and inverseSaunaDoor is false', () => {
+  it('should turn off sauna heater when door opens if saunaOnWhileDoorOpen is false and saunaDoorNO is false', () => {
     saunaConfig.saunaOnWhileDoorOpen = false;
-    saunaConfig.inverseSaunaDoor = false;
+    saunaConfig.saunaDoorNO = false;
 
     // Ensure that the door monitoring is active
     (saunaAccessory as any).monitorDoors('sauna', true);
@@ -116,9 +116,9 @@ describe('OpenSaunaAccessory Sauna Test', () => {
     });
   });
 
-  it('should turn off sauna heater when door opens if saunaOnWhileDoorOpen is false and inverseSaunaDoor is true', () => {
+  it('should turn off sauna heater when door opens if saunaOnWhileDoorOpen is false and saunaDoorNO is true', () => {
     saunaConfig.saunaOnWhileDoorOpen = false;
-    saunaConfig.inverseSaunaDoor = true;
+    saunaConfig.saunaDoorNO = true;
 
     (saunaAccessory as any).handleStateSet('sauna', platform.Characteristic.TargetHeatingCoolingState.HEAT);
     (saunaAccessory as any).handleDoorStateChange('sauna', true);

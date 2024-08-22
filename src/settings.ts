@@ -12,8 +12,8 @@ export interface OpenSaunaConfig {
   hasSteam: boolean; // Indicates if the steam room is present
   hasLight: boolean; // Indicates if a light control is available
   hasFan: boolean; // Indicates if a fan control is available
-  inverseSaunaDoor: boolean; // Door sensor setup: False for Normally-Closed, True for Normally-Open
-  inverseSteamDoor: boolean; // Door sensor setup: False for Normally-Closed, True for Normally-Open
+  saunaDoorNO: boolean; // Magnetic Switch Type: true for (NO) Normally-Open, false for (NC) Normally-Closed
+  steamDoorNO: boolean; // Magnetic Switch Type: true for (NO) Normally-Open, false for (NC) Normally-Closed
   temperatureUnitFahrenheit: boolean; // If true, temperatures are in Fahrenheit; otherwise, Celsius
   gpioPowerPins: powerPin[]; // Controller specific relays for actuating 120V relays.
   relayPins: relayPin[]; // System to GPIO associations
