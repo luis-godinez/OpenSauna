@@ -446,6 +446,7 @@ export class OpenSaunaAccessory {
         clearTimeout(this.saunaTimer);
       }
       this.saunaTimer = setTimeout(() => {
+        this.platform.log.warn(`${system} powering off after ${timeout} minutes timeout.`);
         this.stopSystem(system);
       }, timeout * 60000); // minutes
     } else if (system === 'steam') {
@@ -454,6 +455,7 @@ export class OpenSaunaAccessory {
         clearTimeout(this.steamTimer);
       }
       this.steamTimer = setTimeout(() => {
+        this.platform.log.warn(`${system} powering off after ${timeout} minutes timeout.`);
         this.stopSystem(system);
       }, timeout * 60000); // minutes
     }
