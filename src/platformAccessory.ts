@@ -222,7 +222,7 @@ export class OpenSaunaAccessory {
     temperatureSetHandler: (value: CharacteristicValue) => void,
   ): Service {
     const thermostatService =
-    this.accessory.getService(subtype) || this.accessory.addService(this.platform.Service.Thermostat, name, subtype);
+      this.accessory.getService(subtype) || this.accessory.addService(this.platform.Service.Thermostat, name, subtype);
 
     // Restrict target states to "Off" and "Heat"
     thermostatService
@@ -246,7 +246,7 @@ export class OpenSaunaAccessory {
 
     // Set the temperature properties based on config
     const maxTemperature =
-    subtype === 'sauna-thermostat' ? this.config.saunaMaxTemperature : this.config.steamMaxTemperature;
+      subtype === 'sauna-thermostat' ? this.config.saunaMaxTemperature : this.config.steamMaxTemperature;
 
     this.platform.log.info(`Setting up thermostat: ${name}`);
 
@@ -260,10 +260,6 @@ export class OpenSaunaAccessory {
       .onSet(temperatureSetHandler);
 
     thermostatService.setCharacteristic(this.platform.Characteristic.Name, name);
-
-    // Add the TemperatureDisplayUnits characteristic
-    thermostatService
-      .getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits);
 
     return thermostatService;
   }
@@ -519,11 +515,7 @@ export class OpenSaunaAccessory {
             // Convert the ADC reading to a temperature value
             const temperatureCelsius = this.calculateTemperature(reading.value, sensor.resistanceAt25C, sensor.bValue);
 
-            // Determine the temperature unit to display
-            const thermostatService = this.accessory.getService(`${sensor.system}-thermostat`);
-            const displayUnits = thermostatService?.getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits).value;
-
-            const displayTemperature = displayUnits === this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT
+            const displayTemperature = this.config.temperatureUnitFahrenheit
               ? this.convertToFahrenheit(temperatureCelsius)
               : temperatureCelsius;
 
@@ -531,7 +523,9 @@ export class OpenSaunaAccessory {
             const isInvalidReading = temperatureCelsius < -20 || temperatureCelsius > 150;
             if (isInvalidReading) {
               this.platform.log.warn(
-                `${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °C (invalid)`,
+                `${sensor.name} Invalid Temperature: ${displayTemperature.toFixed(2)} °${
+                  this.config.temperatureUnitFahrenheit ? 'F' : 'C'
+                }`,
               );
               // Reflect the invalid state in the HomeKit UI or log
               this.reflectInvalidReadingState(sensor);
@@ -548,7 +542,9 @@ export class OpenSaunaAccessory {
             }
 
             this.platform.log.info(
-              `${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °C`,
+              `${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °${
+                this.config.temperatureUnitFahrenheit ? 'F' : 'C'
+              }`,
             );
 
             // Perform actions based on the temperature reading
