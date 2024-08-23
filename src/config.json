@@ -13,7 +13,6 @@
       "saunaDoorNO": false,
       "steamDoorPin": 26,
       "steamDoorNO": false,
-      "temperatureUnitFahrenheit": false,
       "gpioPowerPins": [
         {
           "set": 27,
