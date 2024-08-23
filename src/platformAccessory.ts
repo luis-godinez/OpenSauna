@@ -248,16 +248,41 @@ export class OpenSaunaAccessory {
     const maxTemperature =
       subtype === 'sauna-thermostat' ? this.config.saunaMaxTemperature : this.config.steamMaxTemperature;
 
-    this.platform.log.info(`Setting up thermostat: ${name}`);
+    // Determine the appropriate minStep based on the current TemperatureDisplayUnits
+    const displayUnits = thermostatService.getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits).value;
+    const minStep = displayUnits === this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT ? 1 : 0.5; // 1°F or 0.5°C
 
     thermostatService
       .getCharacteristic(this.platform.Characteristic.TargetTemperature)
       .setProps({
-        minValue: 0, // Minimum temperature is 0°C
-        maxValue: maxTemperature, // Maximum temperature based on user config
-        minStep: 1, // Example: 1°C increments
+        minValue: 0,
+        maxValue: maxTemperature,
+        minStep: minStep, // Use the calculated minStep
       })
-      .onSet(temperatureSetHandler);
+      .onSet((value) => {
+        temperatureSetHandler(value); // Pass the value directly as Celsius
+      });
+
+    thermostatService.getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits)
+      .on('change', (newUnits) => {
+        // Update minStep based on units
+        const updatedMinStep = newUnits.newValue === this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT ? 1 : 0.5;
+        thermostatService
+          .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+          .setProps({
+            minStep: updatedMinStep,
+          });
+
+        // Update current temperature and target temperature to match new display units
+        const currentTemperature = thermostatService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).value;
+        const targetTemperature = thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature).value;
+
+        const newCurrentTemperature = this.getTemperatureInDisplayUnits(currentTemperature as number, thermostatService);
+        const newTargetTemperature = this.getTemperatureInDisplayUnits(targetTemperature as number, thermostatService);
+
+        thermostatService.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, newCurrentTemperature);
+        thermostatService.updateCharacteristic(this.platform.Characteristic.TargetTemperature, newTargetTemperature);
+      });
 
     thermostatService.setCharacteristic(this.platform.Characteristic.Name, name);
 
@@ -508,44 +533,33 @@ export class OpenSaunaAccessory {
               return;
             }
 
-            // Log the raw ADC value for debugging
-            const piVoltage = 3.3; // ADC runs on 5V but has 3.3V output to Pi via voltage divider.
+            const piVoltage = 3.3;
             const voltage = reading.value * piVoltage;
 
-            // Convert the ADC reading to a temperature value
+            // Convert the ADC reading to celsius
             const temperatureCelsius = this.calculateTemperature(reading.value, sensor.resistanceAt25C, sensor.bValue);
 
-            const displayTemperature = this.config.temperatureUnitFahrenheit
-              ? this.convertToFahrenheit(temperatureCelsius)
-              : temperatureCelsius;
-
-            // Check for invalid readings (e.g., sensor disconnected)
-            const isInvalidReading = temperatureCelsius < -20 || temperatureCelsius > 150;
-            if (isInvalidReading) {
-              this.platform.log.warn(
-                `${sensor.name} Invalid Temperature: ${displayTemperature.toFixed(2)} °${
-                  this.config.temperatureUnitFahrenheit ? 'F' : 'C'
-                }`,
-              );
-              // Reflect the invalid state in the HomeKit UI or log
-              this.reflectInvalidReadingState(sensor);
-              return;
-            }
-
-            // Update the HomeKit characteristic with the current temperature
             const thermistorService = this.temperatureSensors.get(sensor.name);
             if (thermistorService) {
+              const displayTemperature = this.getTemperatureInDisplayUnits(temperatureCelsius, thermistorService);
+
+              // Check for invalid readings (e.g., sensor disconnected)
+              const isInvalidReading = temperatureCelsius < -20 || temperatureCelsius > 150;
+              if (isInvalidReading) {
+                this.platform.log.warn(`${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °C (invalid)`);
+                // Reflect the invalid state in the HomeKit UI or log
+                this.reflectInvalidReadingState(sensor);
+                return;
+              }
+
+              // Update the HomeKit characteristic with the current temperature
               thermistorService.updateCharacteristic(
                 this.platform.Characteristic.CurrentTemperature,
                 displayTemperature,
               );
-            }
 
-            this.platform.log.info(
-              `${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °${
-                this.config.temperatureUnitFahrenheit ? 'F' : 'C'
-              }`,
-            );
+              this.platform.log.info(`${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °C`);
+            }
 
             // Perform actions based on the temperature reading
             if (sensor.system === 'sauna') {
@@ -832,6 +846,13 @@ export class OpenSaunaAccessory {
     steinhart -= 273.15; // convert to Celsius
 
     return steinhart;
+  }
+
+  private getTemperatureInDisplayUnits(temperatureCelsius: number, service: Service): number {
+    const displayUnits = service.getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits).value;
+    return displayUnits === this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT
+      ? this.convertToFahrenheit(temperatureCelsius)
+      : temperatureCelsius;
   }
 
   // Utility function to convert Celsius to Fahrenheit

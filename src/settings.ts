@@ -14,7 +14,6 @@ export interface OpenSaunaConfig {
   hasFan: boolean; // Indicates if a fan control is available
   saunaDoorNO: boolean; // Magnetic Switch Type: true for (NO) Normally-Open, false for (NC) Normally-Closed
   steamDoorNO: boolean; // Magnetic Switch Type: true for (NO) Normally-Open, false for (NC) Normally-Closed
-  temperatureUnitFahrenheit: boolean; // If true, temperatures are in Fahrenheit; otherwise, Celsius
   gpioPowerPins: powerPin[]; // Controller specific relays for actuating 120V relays.
   relayPins: relayPin[]; // System to GPIO associations
   thermistors: thermistorConfig[]; // Configuration of auxiliary sensors

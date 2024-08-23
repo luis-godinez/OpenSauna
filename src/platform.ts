@@ -47,12 +47,12 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     devices.steamOnWhileDoorOpen = devices.steamOnWhileDoorOpen ?? true;
     devices.saunaTimeout = devices.saunaTimeout ?? 60; // in minutes
     devices.steamTimeout = devices.steamTimeout ?? 60; // in minutes
-    devices.saunaMaxTemperature = devices.saunaMaxTemperature ?? (devices.temperatureUnitFahrenheit ? 212 : 100);
-    devices.steamMaxTemperature = devices.steamMaxTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
-    devices.saunaSafetyTemperature = devices.saunaSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 248 : 120);
-    devices.steamSafetyTemperature = devices.steamSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 140 : 60);
+    devices.saunaMaxTemperature = devices.saunaMaxTemperature ?? 100;
+    devices.steamMaxTemperature = devices.steamMaxTemperature ?? 60;
+    devices.saunaSafetyTemperature = devices.saunaSafetyTemperature ?? 120;
+    devices.steamSafetyTemperature = devices.steamSafetyTemperature ?? 60;
     devices.controllerSafetyTemperature =
-      devices.controllerSafetyTemperature ?? (devices.temperatureUnitFahrenheit ? 194 : 90);
+      devices.controllerSafetyTemperature ?? 90;
 
     this.log.info('Defaults applied, adding accessory...');
     this.addAccessory(devices);
@@ -109,7 +109,6 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
       'hasFan',
       'saunaDoorNO',
       'steamDoorNO',
-      'temperatureUnitFahrenheit',
       'gpioPowerPins',
       'relayPins',
       'thermistors',
