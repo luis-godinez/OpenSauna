@@ -224,6 +224,9 @@ export class OpenSaunaAccessory {
     const thermostatService =
       this.accessory.getService(subtype) || this.accessory.addService(this.platform.Service.Thermostat, name, subtype);
 
+    // Set service name
+    thermostatService.setCharacteristic(this.platform.Characteristic.Name, name);
+
     // Restrict target states to "Off" and "Heat"
     thermostatService
       .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
@@ -265,7 +268,6 @@ export class OpenSaunaAccessory {
 
     thermostatService.getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits)
       .on('change', (newUnits) => {
-        // Update minStep based on units
         const updatedMinStep = newUnits.newValue === this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT ? 1 : 0.5;
         thermostatService
           .getCharacteristic(this.platform.Characteristic.TargetTemperature)
@@ -274,18 +276,24 @@ export class OpenSaunaAccessory {
           });
 
         // Update current temperature and target temperature to match new display units
-        const currentTemperature = thermostatService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).value;
-        const targetTemperature = thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature).value;
+        let currentTemperature = thermostatService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).value;
+        let targetTemperature = thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature).value;
 
-        const newCurrentTemperature = this.getTemperatureInDisplayUnits(currentTemperature as number, thermostatService);
-        const newTargetTemperature = this.getTemperatureInDisplayUnits(targetTemperature as number, thermostatService);
+        let newCurrentTemperature = this.getTemperatureInDisplayUnits(currentTemperature as number, thermostatService);
+        let newTargetTemperature = this.getTemperatureInDisplayUnits(targetTemperature as number, thermostatService);
+
+        const maxTemperature = newUnits.newValue === this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT
+          ? this.convertToFahrenheit(this.config.saunaMaxTemperature)
+          : this.config.saunaMaxTemperature;
+
+        // Ensure the target temperature does not exceed maxTemperature
+        if (newTargetTemperature > maxTemperature) {
+          newTargetTemperature = maxTemperature;
+        }
 
         thermostatService.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, newCurrentTemperature);
         thermostatService.updateCharacteristic(this.platform.Characteristic.TargetTemperature, newTargetTemperature);
       });
-
-    thermostatService.setCharacteristic(this.platform.Characteristic.Name, name);
-
     return thermostatService;
   }
 
@@ -355,7 +363,15 @@ export class OpenSaunaAccessory {
       otherService?.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).value ===
       this.platform.Characteristic.CurrentHeatingCoolingState.HEAT;
 
+    // Log the requested state (HEAT or OFF)
     this.platform.log.info(` [Request] handleStateSet(${system}):`, value ? 'HEAT' : 'OFF');
+
+    // Get the target temperature for logging
+    const thermostatService = this.accessory.getService(`${system}-thermostat`);
+    if (thermostatService) {
+      const targetTemperature = thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature).value;
+      this.platform.log.info(`${system} Target Temperature: ${targetTemperature}°C`);
+    }
 
     if (otherSystemRunning && value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
       this.platform.log.info('OTHER SYSTEM MUST BE TURNED OFF FIRST.');
