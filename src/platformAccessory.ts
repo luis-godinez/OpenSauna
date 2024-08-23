@@ -364,7 +364,7 @@ export class OpenSaunaAccessory {
       this.platform.Characteristic.CurrentHeatingCoolingState.HEAT;
 
     // Log the requested state (HEAT or OFF)
-    this.platform.log.info(` [Request] handleStateSet(${system}):`, value ? 'HEAT' : 'OFF');
+    this.platform.log.info(`[Request] handleStateSet(${system}):`, value ? 'HEAT' : 'OFF');
 
     // Get the target temperature for logging
     const thermostatService = this.accessory.getService(`${system}-thermostat`);
@@ -447,7 +447,7 @@ export class OpenSaunaAccessory {
       }
       this.saunaTimer = setTimeout(() => {
         this.stopSystem(system);
-      }, timeout * 1000);
+      }, timeout * 60000); // minutes
     } else if (system === 'steam') {
       const timeout = this.config.steamTimeout;
       if (this.steamTimer) {
@@ -455,7 +455,7 @@ export class OpenSaunaAccessory {
       }
       this.steamTimer = setTimeout(() => {
         this.stopSystem(system);
-      }, timeout * 1000);
+      }, timeout * 60000); // minutes
     }
   }
 
