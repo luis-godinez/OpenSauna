@@ -13,8 +13,6 @@ export class OpenSaunaAccessory {
   private saunaTimer: NodeJS.Timeout | null = null;
   private steamTimer: NodeJS.Timeout | null = null;
   private doorPollRegistered: { [pin: number]: boolean } = {};
-
-  // Track the state of the relays (true if enabled, false if disabled)
   private relaysEnabled = false;
 
   constructor(
@@ -103,6 +101,14 @@ export class OpenSaunaAccessory {
   // Initialize GPIO pins asynchronously with error handling
   private async initializeGPIOAsync() {
     try {
+      // Initialize GPIO power pins, force power relays to off
+      this.config.gpioPowerPins.forEach((pinConfig) => {
+        rpio.open(pinConfig.set, rpio.OUTPUT, rpio.LOW); // Open 'set' pin as OUTPUT and set to LOW
+        rpio.open(pinConfig.reset, rpio.OUTPUT, rpio.LOW); // Open 'reset' pin as OUTPUT and set to LOW
+        rpio.write(pinConfig.set, rpio.LOW); // Force set pin to LOW
+        rpio.write(pinConfig.reset, rpio.HIGH); // Force reset pin to HIGH (disables relay)
+      });
+
       // Initialize relay pins
       this.config.relayPins.forEach((config) => {
         config.GPIO.forEach((pin) => {
@@ -242,7 +248,7 @@ export class OpenSaunaAccessory {
     const maxTemperature =
       subtype === 'sauna-thermostat' ? this.config.saunaMaxTemperature : this.config.steamMaxTemperature;
 
-    this.platform.log.info(`Setup ${name}`);
+    this.platform.log.info(`Setting up thermostat: ${name}`);
 
     thermostatService
       .getCharacteristic(this.platform.Characteristic.TargetTemperature)
@@ -253,7 +259,6 @@ export class OpenSaunaAccessory {
       })
       .onSet(temperatureSetHandler);
 
-    // Set the name characteristic
     thermostatService.setCharacteristic(this.platform.Characteristic.Name, name);
 
     return thermostatService;
@@ -563,38 +568,46 @@ export class OpenSaunaAccessory {
   }
 
   // Controller temperature and control relays
-  private handleControllerTemperature(temperatureCelsius: number) {
+  private async handleControllerTemperature(temperatureCelsius: number): Promise<void> {
     if (temperatureCelsius <= this.config.controllerSafetyTemperature && !this.relaysEnabled) {
       this.enable120VRelays();
     } else if (temperatureCelsius > this.config.controllerSafetyTemperature && this.relaysEnabled) {
       this.flashLights(10); // Flash warning lights
       this.disableAllRelays(); // Disable all auxiliary relays (lights, fan, steam)
-      this.disable120VRelays(); // Disable main power (120v) pins
+      this.disable120VRelays(); // Disable main power (120V) pins
     }
   }
 
-  private enable120VRelays() {
+  private async enable120VRelays(): Promise<void> {
     if (!this.relaysEnabled) {
-      // Only enable if not already enabled
-      this.config.gpioPowerPins.forEach((pinConfig) => {
+      for (const [index, pinConfig] of this.config.gpioPowerPins.entries()) {
         this.platform.log.info(`Enabling 120V Relay: Set Pin ${pinConfig.set}, Reset Pin ${pinConfig.reset}`);
-        rpio.write(pinConfig.set, rpio.HIGH);
-        rpio.write(pinConfig.reset, rpio.LOW);
-      });
+        rpio.write(pinConfig.reset, rpio.LOW); // Ensure the reset pin is LOW
+        await this.delay(20); // Wait to ensure the reset has taken effect
+        rpio.write(pinConfig.set, rpio.HIGH); // Set pin HIGH to enable the relay
+        await this.delay(20); // Ensure the relay has fully engaged
+        this.platform.log.info(`Relay ${index + 1} enabled.`);
+      }
       this.relaysEnabled = true; // Update the state to reflect that relays are now enabled
     }
   }
 
-  private disable120VRelays() {
+  private async disable120VRelays(): Promise<void> {
     if (this.relaysEnabled) {
-      // Only disable if not already disabled
-      this.config.gpioPowerPins.forEach((pinConfig) => {
+      for (const [index, pinConfig] of this.config.gpioPowerPins.entries()) {
         this.platform.log.info(`Disabling 120V Relay: Set Pin ${pinConfig.set}, Reset Pin ${pinConfig.reset}`);
-        rpio.write(pinConfig.set, rpio.LOW);
-        rpio.write(pinConfig.reset, rpio.HIGH);
-      });
+        rpio.write(pinConfig.set, rpio.LOW); // Ensure the set pin is LOW
+        await this.delay(20); // Wait to ensure the set has taken effect
+        rpio.write(pinConfig.reset, rpio.HIGH); // Reset pin HIGH to disable the relay
+        await this.delay(20); // Ensure the relay has fully disengaged
+        this.platform.log.info(`Relay ${index + 1} disabled.`);
+      }
       this.relaysEnabled = false; // Update the state to reflect that relays are now disabled
     }
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   private handleTemperatureControl(system: SystemType, temperatureCelsius: number) {
