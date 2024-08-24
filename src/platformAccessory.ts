@@ -559,7 +559,8 @@ export class OpenSaunaAccessory {
               const displayTemperature = this.getTemperatureInDisplayUnits(temperatureCelsius, thermistorService);
 
               // Check for invalid readings (e.g., sensor disconnected)
-              if (!this.isValidTemperature(temperatureCelsius)) {
+              const isInvalidReading = temperatureCelsius < -20 || temperatureCelsius > 150;
+              if (isInvalidReading) {
                 this.platform.log.warn(`${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °C (invalid)`);
                 // Reflect the invalid state in the HomeKit UI or log
                 this.reflectInvalidReadingState(sensor);
@@ -638,11 +639,6 @@ export class OpenSaunaAccessory {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // Check if controller temperature within hard coded limits
-  private isValidTemperature(temperatureCelsius: number): boolean {
-    return !isNaN(temperatureCelsius) && temperatureCelsius >= -20 && temperatureCelsius <= 150;
-  }
-
   private handleTemperatureControl(system: SystemType, temperatureCelsius: number) {
     let maxTemperature: number | undefined;
     let safetyTemperature: number | undefined;
@@ -661,8 +657,11 @@ export class OpenSaunaAccessory {
         break;
     }
 
+    // Check for invalid readings or NaN values
+    const isInvalidReading = isNaN(temperatureCelsius) || temperatureCelsius < -20 || temperatureCelsius > 150;
+
     if (thermostatService) {
-      if (!this.isValidTemperature(temperatureCelsius)) {
+      if (isInvalidReading) {
         // Ensure power remains off for invalid readings
         this.stopSystem(system);
         this.platform.log.error(`${system} has an invalid signal. Power off due to invalid reading.`);
