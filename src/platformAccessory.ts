@@ -551,9 +551,6 @@ export class OpenSaunaAccessory {
               return;
             }
 
-            const piVoltage = 3.3;
-            const voltage = reading.value * piVoltage;
-
             // Convert the ADC reading to celsius
             const temperatureCelsius = this.calculateTemperature(reading.value, sensor.resistanceAt25C, sensor.bValue);
 
@@ -853,9 +850,13 @@ export class OpenSaunaAccessory {
 
   private calculateTemperature(adcValue: number, resistanceAt25C: number, bValue: number): number {
     const pullUpResistor = 10000; // 10k ohm pull-up resistor
-    const resistance = (1.0 / adcValue - 1.0) * pullUpResistor;
+    const piVoltage = 3.3; // Reference voltage used by the ADC (e.g., 3.3V)
+    const voltage = adcValue * piVoltage; // Convert ADC value to voltage
 
-    // Apply the Steinhart-Hart equation
+    // Calculate the thermistor resistance using the voltage divider formula
+    const resistance = (piVoltage / voltage - 1.0) * pullUpResistor;
+
+    // Apply the Steinhart-Hart equation to calculate the temperature in Celsius
     let steinhart = resistance / resistanceAt25C; // R/Ro
     steinhart = Math.log(steinhart); // ln(R/Ro)
     steinhart /= bValue; // 1/B * ln(R/Ro)
