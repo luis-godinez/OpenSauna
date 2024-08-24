@@ -527,6 +527,10 @@ export class OpenSaunaAccessory {
     });
   }
 
+  private InvalidTemperatureReading( temperatureCelsius : number) {
+    return temperatureCelsius < -20 || temperatureCelsius > 150;
+  }
+
   // Monitor temperatures using ADC channels
   private monitorTemperatures() {
     if (process.env.NODE_ENV === 'test') {
@@ -559,11 +563,18 @@ export class OpenSaunaAccessory {
               const displayTemperature = this.getTemperatureInDisplayUnits(temperatureCelsius, thermistorService);
 
               // Check for invalid readings (e.g., sensor disconnected)
-              const isInvalidReading = temperatureCelsius < -20 || temperatureCelsius > 150;
-              if (isInvalidReading) {
+              if (this.InvalidTemperatureReading(temperatureCelsius)) {
                 this.platform.log.warn(`${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °C (invalid)`);
+
+                // Update the HomeKit characteristic with the current temperature
+                thermistorService.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, 0);
+
+                // ToDo: Does this need to be reset to clear fault once temperature is valid?
                 // Reflect the invalid state in the HomeKit UI or log
-                this.reflectInvalidReadingState(sensor);
+                thermistorService.updateCharacteristic(
+                  this.platform.Characteristic.StatusFault,
+                  this.platform.Characteristic.StatusFault.GENERAL_FAULT,
+                );
                 return;
               }
 
@@ -657,14 +668,11 @@ export class OpenSaunaAccessory {
         break;
     }
 
-    // Check for invalid readings or NaN values
-    const isInvalidReading = isNaN(temperatureCelsius) || temperatureCelsius < -20 || temperatureCelsius > 150;
-
     if (thermostatService) {
-      if (isInvalidReading) {
-        // Ensure power remains off for invalid readings
-        this.stopSystem(system);
+      // Ensure power remains off for invalid readings
+      if (this.InvalidTemperatureReading(temperatureCelsius)) {
         this.platform.log.error(`${system} has an invalid signal. Power off due to invalid reading.`);
+        this.stopSystem(system);
         return; // Exit early since the reading is invalid
       }
 
@@ -707,19 +715,6 @@ export class OpenSaunaAccessory {
         this.platform.log.info(`${system} above setpoint.`);
         this.setPowerState(system, false);
       }
-    }
-  }
-
-  // Method to reflect invalid sensor state in the HomeKit UI or log
-  private reflectInvalidReadingState(sensor: thermistorConfig) {
-    // Optionally, update the UI to reflect an error state if supported
-    // For example, using a custom characteristic or accessory to indicate the error
-    const thermistorService = this.temperatureSensors.get(sensor.name);
-    if (thermistorService) {
-      thermistorService.updateCharacteristic(
-        this.platform.Characteristic.StatusFault,
-        this.platform.Characteristic.StatusFault.GENERAL_FAULT,
-      );
     }
   }
 
