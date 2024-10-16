@@ -24,6 +24,7 @@ export class OpenSaunaAccessory {
       .getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, `${this.config.manufacturer}`)
       .setCharacteristic(this.platform.Characteristic.Name, `${this.config.name}`)
+      .setCharacteristic(this.platform.Characteristic.ConfiguredName, `${this.config.name}`)
       .setCharacteristic(this.platform.Characteristic.Model, 'OpenSauna')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, `${this.config.serial}`);
 
@@ -210,7 +211,8 @@ export class OpenSaunaAccessory {
     const switchService =
       this.accessory.getService(subtype) || this.accessory.addService(this.platform.Service.Switch, name, subtype);
     switchService.getCharacteristic(this.platform.Characteristic.On).onSet(onSetHandler);
-    switchService.setCharacteristic(this.platform.Characteristic.Name, name); // Set the name
+    switchService.setCharacteristic(this.platform.Characteristic.Name, name);
+    switchService.setCharacteristic(this.platform.Characteristic.ConfiguredName, name);
     return switchService;
   }
 
@@ -226,6 +228,7 @@ export class OpenSaunaAccessory {
 
     // Set service name
     thermostatService.setCharacteristic(this.platform.Characteristic.Name, name);
+    thermostatService.setCharacteristic(this.platform.Characteristic.ConfiguredName, name);
 
     // Restrict target states to "Off" and "Heat"
     thermostatService
@@ -302,7 +305,8 @@ export class OpenSaunaAccessory {
     const tempService =
       this.accessory.getService(subtype) ||
       this.accessory.addService(this.platform.Service.TemperatureSensor, name, subtype);
-    tempService.setCharacteristic(this.platform.Characteristic.Name, name); // Set the name
+    tempService.setCharacteristic(this.platform.Characteristic.Name, name);
+    tempService.setCharacteristic(this.platform.Characteristic.ConfiguredName, name);
     return tempService;
   }
 
@@ -311,7 +315,8 @@ export class OpenSaunaAccessory {
     const contactService =
       this.accessory.getService(subtype) ||
       this.accessory.addService(this.platform.Service.ContactSensor, name, subtype);
-    contactService.setCharacteristic(this.platform.Characteristic.Name, name); // Set the name
+    contactService.setCharacteristic(this.platform.Characteristic.Name, name);
+    contactService.setCharacteristic(this.platform.Characteristic.ConfiguredName, name);
     return contactService;
   }
 
