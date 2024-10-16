@@ -1,9 +1,9 @@
-export const PLATFORM_NAME = 'OpenSauna';
-export const PLUGIN_NAME = 'homebridge-opensauna';
+export const PLATFORM_NAME = 'OpenSpa';
+export const PLUGIN_NAME = 'homebridge-openspa';
 
 export type SystemType = 'sauna' | 'steam' | 'fan' | 'light';
 
-export interface OpenSaunaConfig {
+export interface OpenSpaConfig {
   manufacturer: string; // Name of the manufacturer
   platform: string; // Name of the platform
   name: string; // Custom name for the sauna system

@@ -7,10 +7,10 @@ import {
   Service,
   Characteristic,
 } from 'homebridge';
-import { PLATFORM_NAME, PLUGIN_NAME, OpenSaunaConfig } from './settings.js';
-import { OpenSaunaAccessory } from './platformAccessory.js';
+import { PLATFORM_NAME, PLUGIN_NAME, OpenSpaConfig } from './settings.js';
+import { OpenSpaAccessory } from './platformAccessory.js';
 
-export class OpenSaunaPlatform implements DynamicPlatformPlugin {
+export class OpenSpaPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service;
   public readonly Characteristic: typeof Characteristic;
   public readonly accessories: PlatformAccessory[] = [];
@@ -20,7 +20,7 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     this.Characteristic = this.api.hap.Characteristic;
 
     this.api.on('didFinishLaunching', () => {
-      this.log.info('OpenSauna Plugin finished launching');
+      this.log.info('OpenSpa Plugin finished launching');
       this.discoverDevices();
     });
   }
@@ -32,11 +32,11 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
   discoverDevices() {
     this.log.info('Starting device discovery...');
 
-    // Cast config to OpenSaunaConfig
-    const devices = this.config as OpenSaunaConfig;
+    // Cast config to OpenSpaConfig
+    const devices = this.config as OpenSpaConfig;
 
-    if (!this.isOpenSaunaConfig(devices)) {
-      this.log.error('Invalid configuration for OpenSauna. Please check your config.json.');
+    if (!this.isOpenSpaConfig(devices)) {
+      this.log.error('Invalid configuration for OpenSpa. Please check your config.json.');
       return;
     }
 
@@ -59,7 +59,7 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     this.log.info('Device discovery completed.');
   }
 
-  private addAccessory(devices: OpenSaunaConfig) {
+  private addAccessory(devices: OpenSpaConfig) {
     // Generate a unique UUID for the combined accessory
     const uuid = this.api.hap.uuid.generate(devices.name);
 
@@ -71,7 +71,7 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
       this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
 
       // Update the existing accessory's information and services
-      new OpenSaunaAccessory(this, existingAccessory, devices);
+      new OpenSpaAccessory(this, existingAccessory, devices);
 
       // Ensure the accessory is up-to-date
       this.api.updatePlatformAccessories([existingAccessory]);
@@ -81,7 +81,7 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
       const accessory = new this.api.platformAccessory(devices.name, uuid);
 
       // Create the accessory handler
-      new OpenSaunaAccessory(this, accessory, devices);
+      new OpenSpaAccessory(this, accessory, devices);
 
       // Register the new accessory
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
@@ -91,14 +91,14 @@ export class OpenSaunaPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  private isOpenSaunaConfig(config: any): config is OpenSaunaConfig {
+  private isOpenSpaConfig(config: any): config is OpenSpaConfig {
     // Check if config is an object and if it has the required properties
     if (typeof config !== 'object' || config === null) {
       return false;
     }
 
     // Validate the presence of required properties
-    const requiredKeys: Array<keyof OpenSaunaConfig> = [
+    const requiredKeys: Array<keyof OpenSpaConfig> = [
       'manufacturer',
       'platform',
       'name',

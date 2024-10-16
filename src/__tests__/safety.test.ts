@@ -1,13 +1,13 @@
 import { createTestPlatformAndAccessory, saunaConfig } from "./setup";
 import { mockDigitalWrite } from "../jest.setup";
-import { OpenSaunaAccessory } from "../platformAccessory";
-import { OpenSaunaPlatform } from "../platform";
+import { OpenSpaAccessory } from "../platformAccessory";
+import { OpenSpaPlatform } from "../platform";
 import { PlatformAccessory } from "homebridge";
 
-describe("OpenSaunaAccessory Safety Test", () => {
-  let platform: OpenSaunaPlatform;
+describe("OpenSpaAccessory Safety Test", () => {
+  let platform: OpenSpaPlatform;
   let accessory: PlatformAccessory;
-  let saunaAccessory: OpenSaunaAccessory;
+  let saunaAccessory: OpenSpaAccessory;
 
   beforeEach(() => {
     jest.useFakeTimers(); // Enable fake timers for this test suite

@@ -1,0 +1,187 @@
+{
+    "pluginAlias": "OpenSpa",
+    "pluginType": "platform",
+    "singular": true,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "platform": {
+          "type": "string",
+          "title": "Platform",
+          "default": "OpenSpa",
+          "readOnly": true
+        },
+        "manufacturer": {
+          "type": "string",
+          "title": "Manufacturer",
+          "default": "Ungodly Design"
+        },
+        "name": {
+          "type": "string",
+          "title": "Name",
+          "default": "OpenSpa"
+        },
+        "serial": {
+          "type": "string",
+          "title": "Serial Number",
+          "default": "1234567890"
+        },
+        "hasSauna": {
+          "type": "boolean",
+          "title": "Has Sauna",
+          "default": true
+        },
+        "hasSteam": {
+          "type": "boolean",
+          "title": "Has Steam",
+          "default": true
+        },
+        "hasLight": {
+          "type": "boolean",
+          "title": "Has Light",
+          "default": true
+        },
+        "hasFan": {
+          "type": "boolean",
+          "title": "Has Fan",
+          "default": true
+        },
+        "saunaDoorPin": {
+          "type": "integer",
+          "title": "Sauna Door Pin",
+          "default": 19
+        },
+        "saunaDoorNO": {
+          "type": "boolean",
+          "title": "Sauna Door Normally Open",
+          "default": false
+        },
+        "steamDoorPin": {
+          "type": "integer",
+          "title": "Steam Door Pin",
+          "default": 26
+        },
+        "steamDoorNO": {
+          "type": "boolean",
+          "title": "Steam Door Normally Open",
+          "default": false
+        },
+        "gpioPowerPins": {
+          "type": "array",
+          "title": "GPIO Power Pins",
+          "items": {
+            "type": "object",
+            "properties": {
+              "set": {
+                "type": "integer",
+                "title": "Set Pin"
+              },
+              "reset": {
+                "type": "integer",
+                "title": "Reset Pin"
+              }
+            }
+          }
+        },
+        "relayPins": {
+          "type": "array",
+          "title": "Relay Pins",
+          "items": {
+            "type": "object",
+            "properties": {
+              "GPIO": {
+                "type": "array",
+                "title": "GPIO Pins",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "system": {
+                "type": "string",
+                "title": "System"
+              }
+            }
+          }
+        },
+        "thermistors": {
+          "type": "array",
+          "title": "Thermistors",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "title": "Name"
+              },
+              "channel": {
+                "type": "integer",
+                "title": "Channel"
+              },
+              "system": {
+                "type": ["string", "null"],
+                "title": "System",
+                "default": null
+              },
+              "control": {
+                "type": "boolean",
+                "title": "Control"
+              },
+              "resistanceAt25C": {
+                "type": "integer",
+                "title": "Resistance at 25°C"
+              },
+              "bValue": {
+                "type": "integer",
+                "title": "B Value"
+              }
+            }
+          }
+        },
+        "saunaOnWhileDoorOpen": {
+          "type": "boolean",
+          "title": "Sauna On While Door Open",
+          "default": false
+        },
+        "steamOnWhileDoorOpen": {
+          "type": "boolean",
+          "title": "Steam On While Door Open",
+          "default": false
+        },
+        "saunaTimeout": {
+          "type": "integer",
+          "title": "Sauna Timeout (minutes)",
+          "default": 60
+        },
+        "steamTimeout": {
+          "type": "integer",
+          "title": "Steam Timeout (minutes)",
+          "default": 60
+        },
+        "controllerSafetyTemperature": {
+          "type": "integer",
+          "title": "Controller Safety Temperature (°C)",
+          "default": 90
+        },
+        "saunaMaxTemperature": {
+          "type": "integer",
+          "title": "Sauna Max Temperature (°C)",
+          "default": 100
+        },
+        "saunaSafetyTemperature": {
+          "type": "integer",
+          "title": "Sauna Safety Temperature (°C)",
+          "default": 120
+        },
+        "steamMaxTemperature": {
+          "type": "integer",
+          "title": "Steam Max Temperature (°C)",
+          "default": 60
+        },
+        "steamSafetyTemperature": {
+          "type": "integer",
+          "title": "Steam Safety Temperature (°C)",
+          "default": 60
+        }
+      }
+    }
+  }

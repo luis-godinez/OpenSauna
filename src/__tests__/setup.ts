@@ -1,9 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { OpenSaunaAccessory } from "../platformAccessory";
-import { OpenSaunaPlatform } from "../platform";
+import { OpenSpaAccessory } from "../platformAccessory";
+import { OpenSpaPlatform } from "../platform";
 import { PlatformAccessory, API, Logger, PlatformConfig } from "homebridge";
-import { OpenSaunaConfig } from "../settings";
+import { OpenSpaConfig } from "../settings";
 import { mockRead } from "../jest.setup";
 
 // Mock Homebridge API and services
@@ -69,8 +69,8 @@ export {
 const configPath = path.resolve(__dirname, "../config.json");
 const configData = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 
-// Extract the first OpenSaunaConfig from the platforms array
-const saunaConfig: OpenSaunaConfig = configData.platforms[0];
+// Extract the first OpenSpaConfig from the platforms array
+const saunaConfig: OpenSpaConfig = configData.platforms[0];
 export { saunaConfig };
 
 const mockHap = {
@@ -125,7 +125,7 @@ const mockLogger: Logger = {
 
 // Setup function to initialize platform and accessory for tests
 export function createTestPlatformAndAccessory() {
-  const platform = new OpenSaunaPlatform(mockLogger, { platform: "OpenSauna" } as PlatformConfig, mockAPI);
+  const platform = new OpenSpaPlatform(mockLogger, { platform: "OpenSpa" } as PlatformConfig, mockAPI);
 
   const accessory = {
     getService: jest.fn().mockImplementation((serviceName) => {
@@ -151,7 +151,7 @@ export function createTestPlatformAndAccessory() {
     }),
   } as unknown as PlatformAccessory;
 
-  const saunaAccessory = new OpenSaunaAccessory(platform, accessory, saunaConfig);
+  const saunaAccessory = new OpenSpaAccessory(platform, accessory, saunaConfig);
 
   type DoorType = "sauna" | "steam";
   type DoorStateKeys = "saunaOnWhileDoorOpen" | "steamOnWhileDoorOpen";

@@ -2,7 +2,10 @@
 dist
 
 # Developer ToDo List
-ToDo
+ToDo.md
+
+# Plugin Config, use GUI Instead
+src/config.json
 
 # ------------- Defaults ------------- #
 

@@ -2,8 +2,8 @@
   "platforms": [
     {
       "manufacturer": "Ungodly Design",
-      "platform": "OpenSauna",
-      "name": "OpenSauna",
+      "platform": "OpenSpa",
+      "name": "OpenSpa",
       "serial": "1234567890",
       "hasSauna": true,
       "hasSteam": true,

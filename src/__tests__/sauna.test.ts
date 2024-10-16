@@ -1,14 +1,14 @@
 import { createTestPlatformAndAccessory, saunaConfig } from './setup';
 import { mockDigitalWrite } from '../jest.setup';
 
-import { OpenSaunaAccessory } from '../platformAccessory';
-import { OpenSaunaPlatform } from '../platform';
+import { OpenSpaAccessory } from '../platformAccessory';
+import { OpenSpaPlatform } from '../platform';
 import { PlatformAccessory } from 'homebridge';
 
-describe('OpenSaunaAccessory Sauna Test', () => {
-  let platform: OpenSaunaPlatform;
+describe('OpenSpaAccessory Sauna Test', () => {
+  let platform: OpenSpaPlatform;
   let accessory: PlatformAccessory;
-  let saunaAccessory: OpenSaunaAccessory;
+  let saunaAccessory: OpenSpaAccessory;
 
   beforeEach(() => {
     process.env.NODE_ENV = 'test';
