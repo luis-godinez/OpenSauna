@@ -4,21 +4,21 @@
 
 <span align="center">
 
-# OpenSauna Homebridge Plugin
+# OpenSpa Homebridge Plugin
 
 </span>
 
-OpenSauna is a Homebridge plugin that allows users to control and monitor their sauna and/or steam room using Apple's HomeKit. This plugin integrates your sauna and steam room controls with HomeKit, providing an easy-to-use interface to manage temperature, humidity, lighting, and fans directly from your iOS devices.
+OpenSpa is a Homebridge plugin that allows users to control and monitor their sauna and/or steam room using Apple's HomeKit. This plugin integrates your sauna and steam room controls with HomeKit, providing an easy-to-use interface to manage temperature, humidity, lighting, and fans directly from your iOS devices.
 
 ## Purpose
 
-OpenSauna is designed to provide a generic sauna controller that allows users to leverage HomeKit to manage and monitor their sauna and steam room environments. It offers flexibility and customization to fit a variety of hardware setups, enabling users to create a smart sauna experience with ease.
+OpenSpa is designed to provide a generic sauna controller that allows users to leverage HomeKit to manage and monitor their sauna and steam room environments. It offers flexibility and customization to fit a variety of hardware setups, enabling users to create a smart sauna experience with ease.
 
 ## Hardware
 
-[OpenSauna Controller](https://ungodly.design/products/opensauna)
+[OpenSpa Controller](https://ungodly.design/products/openspa)
 
-![OpenSaunaController](https://i.imgur.com/GPK4ySn.jpeg)
+![OpenSpaController](https://i.imgur.com/GPK4ySn.jpeg)
 
 ## Key Features
 
@@ -31,7 +31,7 @@ OpenSauna is designed to provide a generic sauna controller that allows users to
 
 ## Configuration
 
-To configure the OpenSauna plugin, you can use the Homebridge UI or edit your `config.json` file directly.
+To configure the OpenSpa plugin, you can use the Homebridge UI or edit your `config.json` file directly.
 
 ### Developer Setup
 
@@ -39,7 +39,7 @@ To configure the OpenSauna plugin, you can use the Homebridge UI or edit your `c
 Using a terminal, navigate to the project folder and run this command to install the development dependencies:
 
 ```
-git clone https://github.com/luis-godinez/OpenSauna.git
-cd OpenSauna
+git clone https://github.com/luis-godinez/OpenSpa.git
+cd OpenSpa
 npm install
 ```

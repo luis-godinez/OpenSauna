@@ -1,8 +1,8 @@
 {
-  "pluginAlias": "OpenSauna",
+  "pluginAlias": "OpenSpa",
   "pluginType": "platform",
   "singular": true,
-  "headerDisplay": "OpenSauna by Ungodly Design. Hardware available [here](https://ungodly.design/opensauna).",
+  "headerDisplay": "OpenSpa by Ungodly Design. Hardware available [here](https://ungodly.design/openspa).",
   "schema": {
     "type": "object",
     "properties": {

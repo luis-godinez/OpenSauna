@@ -1,7 +1,7 @@
 {
   "private": false,
-  "displayName": "OpenSauna",
-  "name": "homebridge-opensauna",
+  "displayName": "OpenSpa",
+  "name": "homebridge-openspa",
   "version": "1.0.0",
   "description": "Homebridge plugin for controlling a sauna.",
   "author": "Luis Godinez <luis@ungodly.design>",
@@ -9,10 +9,10 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/luis-godinez/OpenSauna.git"
+    "url": "git+https://github.com/luis-godinez/OpenSpa.git"
   },
   "bugs": {
-    "url": "https://github.com/luis-godinez/OpenSauna/issues"
+    "url": "https://github.com/luis-godinez/OpenSpa/issues"
   },
   "engines": {
     "node": "^18.20.4 || ^20.16.0 || ^22.5.1",
