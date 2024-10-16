@@ -1,12 +1,12 @@
 // platformAccessory.ts
 
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
-import { OpenSaunaPlatform } from './platform.js';
+import { OpenSpaPlatform } from './platform.js';
 import rpio from 'rpio';
 import { openMcp3008, McpInterface, McpReading, EightChannels } from 'mcp-spi-adc';
-import { OpenSaunaConfig, thermistorConfig, SystemType } from './settings.js';
+import { OpenSpaConfig, thermistorConfig, SystemType } from './settings.js';
 
-export class OpenSaunaAccessory {
+export class OpenSpaAccessory {
   private temperatureSensors: Map<string, Service> = new Map();
   private lightPowerSwitch?: Service;
   private fanPowerSwitch?: Service;
@@ -16,16 +16,16 @@ export class OpenSaunaAccessory {
   private relaysEnabled = false;
 
   constructor(
-    private readonly platform: OpenSaunaPlatform,
+    private readonly platform: OpenSpaPlatform,
     private readonly accessory: PlatformAccessory,
-    private readonly config: OpenSaunaConfig,
+    private readonly config: OpenSpaConfig,
   ) {
     this.accessory
       .getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, `${this.config.manufacturer}`)
-      .setCharacteristic(this.platform.Characteristic.Name, `${this.config.name}`)
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Ungodly Design')
+      .setCharacteristic(this.platform.Characteristic.Name, 'OpenSpa')
       .setCharacteristic(this.platform.Characteristic.ConfiguredName, `${this.config.name}`)
-      .setCharacteristic(this.platform.Characteristic.Model, 'OpenSauna')
+      .setCharacteristic(this.platform.Characteristic.Model, 'v1.0')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, `${this.config.serial}`);
 
     // Initialize RPIO with desired options
@@ -569,7 +569,7 @@ export class OpenSaunaAccessory {
 
               // Check for invalid readings (e.g., sensor disconnected)
               if (this.InvalidTemperatureReading(temperatureCelsius)) {
-                this.platform.log.warn(`${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °C (invalid)`);
+                this.platform.log.warn(`${sensor.name} Temperature: ${Math.round(displayTemperature)} °C (invalid)`);
 
                 // Update the HomeKit characteristic with the current temperature
                 thermistorService.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, 0);
@@ -589,7 +589,7 @@ export class OpenSaunaAccessory {
                 displayTemperature,
               );
 
-              this.platform.log.info(`${sensor.name} Temperature: ${displayTemperature.toFixed(2)} °C`);
+              this.platform.log.info(`${sensor.name} Temperature: ${Math.round(displayTemperature)} °C`);
             }
 
             // Perform actions based on the temperature reading
@@ -673,53 +673,64 @@ export class OpenSaunaAccessory {
         break;
     }
 
-    if (thermostatService) {
-      // Ensure power remains off for invalid readings
-      if (this.InvalidTemperatureReading(temperatureCelsius)) {
-        this.platform.log.error(`${system} has an invalid signal. Power off due to invalid reading.`);
-        this.stopSystem(system);
-        return; // Exit early since the reading is invalid
-      }
+    if (!thermostatService) {
+      return; // Exit if no thermostat service is found
+    }
 
-      // Check safety temperature for critical shutdown
-      if (safetyTemperature !== undefined && temperatureCelsius >= safetyTemperature) {
-        this.platform.log.warn(`${system} exceeded safety temperature! Immediate power off and flashing lights.`);
-        this.stopSystem(system);
-        this.flashLights(10); // Flash warning lights
-        return; // Exit to ensure no further action is taken
-      }
+    const targetMode = thermostatService.getCharacteristic(
+      this.platform.Characteristic.TargetHeatingCoolingState,
+    ).value;
 
-      // Check normal operational max temperature
-      if (maxTemperature !== undefined && temperatureCelsius >= maxTemperature) {
-        this.platform.log.warn(`${system} exceeded max temperature. Power off and flashing lights.`);
-        this.stopSystem(system);
-        this.flashLights(10); // Flash warning lights
-        return; // Exit to ensure no further action is taken
-      }
+    // Exit early if the target mode is not HEAT
+    if (targetMode !== this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
+      return;
+    }
 
-      const targetTemperature = thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature)
-        .value as number;
+    // Ensure power remains off for invalid readings
+    if (this.InvalidTemperatureReading(temperatureCelsius)) {
+      this.platform.log.error(`${system} has an invalid signal. Power off due to invalid reading.`);
+      this.stopSystem(system);
+      return; // Exit early since the reading is invalid
+    }
 
-      const currentMode = thermostatService.getCharacteristic(
-        this.platform.Characteristic.CurrentHeatingCoolingState,
-      ).value;
+    // Check safety temperature for critical shutdown
+    if (safetyTemperature !== undefined && temperatureCelsius >= safetyTemperature) {
+      this.platform.log.warn(`${system} exceeded safety temperature! Immediate power off and flashing lights.`);
+      this.stopSystem(system);
+      this.flashLights(10); // Flash warning lights
+      return; // Exit to ensure no further action is taken
+    }
 
-      if (
-        // If not in HEAT mode and temperature is below target, turn on the heater
-        currentMode !== this.platform.Characteristic.CurrentHeatingCoolingState.HEAT &&
-        temperatureCelsius < targetTemperature
-      ) {
-        this.platform.log.info(`${system} below setpoint.`);
-        this.setPowerState(system, true);
-      } else if (
-        // If in HEAT mode and temperature is above target, turn off the heater
-        currentMode === this.platform.Characteristic.CurrentHeatingCoolingState.HEAT &&
-        temperatureCelsius >= targetTemperature
-      ) {
-        // Turn off heater if temperature reaches or exceeds target
-        this.platform.log.info(`${system} above setpoint.`);
-        this.setPowerState(system, false);
-      }
+    // Check normal operational max temperature
+    if (maxTemperature !== undefined && temperatureCelsius >= maxTemperature) {
+      this.platform.log.warn(`${system} exceeded max temperature. Power off and flashing lights.`);
+      this.stopSystem(system);
+      this.flashLights(10); // Flash warning lights
+      return; // Exit to ensure no further action is taken
+    }
+
+    const targetTemperature = thermostatService.getCharacteristic(this.platform.Characteristic.TargetTemperature)
+      .value as number;
+
+    const currentMode = thermostatService.getCharacteristic(
+      this.platform.Characteristic.CurrentHeatingCoolingState,
+    ).value;
+
+    if (
+      // If not in HEAT mode and temperature is below target, turn on the heater
+      currentMode !== this.platform.Characteristic.CurrentHeatingCoolingState.HEAT &&
+      temperatureCelsius < targetTemperature
+    ) {
+      this.platform.log.info(`${system} below setpoint.`);
+      this.setPowerState(system, true);
+    } else if (
+      // If in HEAT mode and temperature is above target, turn off the heater
+      currentMode === this.platform.Characteristic.CurrentHeatingCoolingState.HEAT &&
+      temperatureCelsius >= targetTemperature
+    ) {
+      // Turn off heater if temperature reaches or exceeds target
+      this.platform.log.info(`${system} above setpoint.`);
+      this.setPowerState(system, false);
     }
   }
 
@@ -752,7 +763,7 @@ export class OpenSaunaAccessory {
     this.platform.log.info('All relays have been disabled.');
   }
 
-  public getPlatform(): OpenSaunaPlatform {
+  public getPlatform(): OpenSpaPlatform {
     return this.platform;
   }
 

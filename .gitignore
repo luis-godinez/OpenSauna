@@ -1,6 +1,9 @@
 # Ignore compiled code
 dist
 
+# Developer ToDo List
+ToDo
+
 # ------------- Defaults ------------- #
 
 # Logs
